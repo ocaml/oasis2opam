@@ -3,9 +3,11 @@ OASISFormat: 0.3
 Name:        oasis2opam
 Version:     0.1
 Synopsis:    Tool to convert OASIS metadata to OPAM package descriptions
-Description: Generate OPAM files
+Description: Generate OPAM files from _oasis.  Most of the metadata
+  supported by OPAM is handled.
 Authors:     Christophe Troestler, Sylvain Le Gall
 Maintainers: Christophe Troestler <Christophe.Troestler@umons.ac.be>
+Categories:  http://build, http://install
 License:     GPL-3 with OCaml linking exception
 Homepage:    https://github.com/ocaml/oasis2opam
 Plugins:     META (0.3), StdFiles (0.3)
@@ -13,7 +15,7 @@ Plugins:     META (0.3), StdFiles (0.3)
 Executable oasis2opam
   Path:           src/
   MainIs:         oasis2opam.ml
-  BuildDepends:   oasis (>= 0.3.0)
+  BuildDepends:   oasis (>= 0.3.0), unix, str
   CompiledObject: best
   BuildTools:     ocamlbuild
   Install:        true
