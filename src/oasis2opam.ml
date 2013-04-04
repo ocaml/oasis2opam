@@ -72,11 +72,13 @@ let output_authors fh pkg =
   fprintf fh "authors: [%s]\n" a
 
 let output_tags fh pkg =
-  let tag cat =
-    (* FIXME: how do we generate tags from categories? *)
-    let t = Filename.basename cat in
-    "\"" ^ String.escaped t ^ "\"" in
-  fprintf fh "tags: [%s]\n" (String.concat " " (List.map tag pkg.categories))
+  if pkg.categories <> [] then (
+    let tag cat =
+      (* FIXME: how do we generate tags from categories? *)
+      let t = Filename.basename cat in
+      "\"" ^ String.escaped t ^ "\"" in
+    fprintf fh "tags: [%s]\n" (String.concat " " (List.map tag pkg.categories))
+  )
 
 let output_build_install fh pkg =
   fprintf fh "build: [\n  \
