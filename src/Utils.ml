@@ -31,6 +31,7 @@ let info s = (!OASISContext.default).OASISContext.printf `Info s
 let warn s = (!OASISContext.default).OASISContext.printf `Warning s
 let error s = (!OASISContext.default).OASISContext.printf `Error s
 let fatal_error s = error s; exit 1
+let debug s = (!OASISContext.default).OASISContext.printf `Debug s
 
 (* Directory name that OPAM expects for a package. *)
 let opam_dir pkg =
@@ -60,3 +61,15 @@ let single_filename d =
     warn(sprintf "oasis2opam: %S does not contain a single file: %s."
                  d (String.concat ", " (Array.to_list fn)));
   Filename.concat d fn.(0)
+
+let read_whole_file fname =
+  let buf = Buffer.create 1024 in
+  let fh = open_in fname in
+  let chunk = String.create 1024 in
+  let len = ref 1 in (* enter loop *)
+  while !len > 0 do
+    len := input fh chunk 0 1024;
+    Buffer.add_substring buf chunk 0 !len
+  done;
+  close_in fh;
+  Buffer.contents buf

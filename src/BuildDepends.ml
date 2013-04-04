@@ -22,6 +22,7 @@
 
 open Printf
 open OASISTypes
+open Utils
 
 module S = Set.Make(String)
 module M = Map.Make(String)
@@ -30,6 +31,68 @@ let findlib_with_ocaml =
   let pkg = [ "bigarray"; "camlp4"; "dynlink"; "graphics"; "labltk"; "num";
               "ocamlbuild"; "stdlib"; "str"; "threads"; "unix" ] in
   List.fold_left (fun s e -> S.add e s) S.empty pkg
+
+module Opam = struct
+
+  let opam =
+    let f_exit_code c =
+      if c <> 0 then
+        if c = 127 then fatal_error "\"opam\" not found.\n"
+        else fatal_error(sprintf "\"opam\" returned the error code %d.\n" c) in
+    fun cmd ->
+    OASISExec.run_read_one_line
+      ~ctxt:!OASISContext.default ~f_exit_code
+      "opam" cmd
+
+  let root = opam ["config"; "var"; "root"]
+
+  let space_re = Str.regexp "[ \t\n\r]+"
+  let pkg_re = Str.regexp "\\([a-zA-Z0-9_-]+\\)\\.\\(.+\\)\\.opam"
+  let findlib_re =
+    Str.regexp "\"ocamlfind\" +\"remove\" +\"\\([a-zA-Z0-9_.-]+\\)\""
+
+  let rec add_all_findlib m opam s ofs =
+    try
+      ignore(Str.search_forward findlib_re s ofs);
+      let ofs = Str.match_end() in
+      let p = Str.matched_group 1 s in
+      let opam_pkgs = try S.add opam (M.find p !m)
+                      with Not_found -> S.singleton opam in
+      m := M.add p opam_pkgs !m;
+      add_all_findlib m opam s ofs
+    with Not_found -> ()
+
+  (* FIXME: we may want to track versions and add a constraint ">="
+     when a findlib package is provided only be later OPAM versions. *)
+  let findlib =
+    (* FIXME: Cache result? *)
+    let m = ref M.empty in
+    let dir = Filename.concat root "opam" in
+    let pkg_ver = Sys.readdir dir in
+    let add pkg_ver =
+      if Str.string_match pkg_re pkg_ver 0 then (
+        let opam = Str.matched_group 1 pkg_ver in
+        (* let version = Str.matched_group 2 pkg_ver in *)
+        let s = read_whole_file (Filename.concat dir pkg_ver) in
+        let s = Str.global_replace space_re " " s in
+        add_all_findlib m opam s 0;
+      ) in
+    Array.iter add pkg_ver;
+    (* Easier to match on lists: *)
+    M.map (fun o -> S.elements o) !m
+
+  (* Return the OPAM package containing the findlib module.  See
+     https://github.com/OCamlPro/opam/issues/573 *)
+  let of_findlib p v =
+    let opam = try M.find p findlib
+               with Not_found -> [] in
+    (* Assume the findlib and OPAM version constraint coincide
+       as it is the case for people using oasis. *)
+    (opam, v)
+end
+
+(* Gather findlib packages
+ ***********************************************************************)
 
 let add_depends_of_build d cond deps =
   let findlib deps = function
@@ -54,16 +117,8 @@ let merge_findlib_depends d =
   let d = List.sort (fun (p1,_,_) (p2,_,_) -> String.compare p1 p2) d in
   merge_findlib_depends_sorted d
 
-let opam_of_findlib (p, v) =
-  (p, v)
-
-let output_depend fh (p, v,_) =
-  (* FIXME: must make a reverse search: findlib package → opam package *)
-  fprintf fh "%S " p;
-  match v with
-  | None -> ()
-  | Some v -> fprintf fh "{%s} " (Version.string_of_comparator v)
-
+(* Compulsory and optional findlib packages
+ ***********************************************************************)
 
 let get_flags sections =
   let add m = function
@@ -82,6 +137,31 @@ let is_compulsory flags cond =
     with Not_found -> "false" in
   OASISExpr.choose eval_tst cond
 
+(* Format OPAM output
+ ***********************************************************************)
+
+let output_depend fh (lib, v,_) =
+  (* FIXME: must make a reverse search: findlib package → opam package *)
+  let opam, v = Opam.of_findlib lib v in
+  (* If there is more than one OPAM package providing the library,
+     warn the user. *)
+  (match opam with
+   | [] ->
+      fatal_error(sprintf "OPAM package for %S not found." lib)
+   | [opam] ->
+      fprintf fh "%S " opam;
+   | _ ->
+      let opam = List.sort String.compare opam in
+      (* FIXME: what is a good heuristic to choose among packages
+         providing the same lib? *)
+      let o = List.hd opam in
+      let pkgs = String.concat ", " opam in
+      warn(sprintf "%S is provided by OPAM packages %s, chose %S." lib pkgs o);
+      fprintf fh "%S " o);
+  match v with
+  | None -> ()
+  | Some v -> fprintf fh "{%s} " (Version.string_of_comparator v)
+
 let output fh pkg =
   let d = List.fold_left findlib_of_section [] pkg.sections in
   let d = merge_findlib_depends d in
@@ -90,8 +170,12 @@ let output fh pkg =
   let flags = get_flags pkg.sections in
   let d, opt = List.partition (fun (_,_,c) -> is_compulsory flags c) d in
 
-  let d = ("ocamlfind", None, []) :: d in
-  output_string fh "depends: [ ";
+  M.iter (fun lib pkg ->
+          if List.length pkg > 1 then
+            eprintf "# %s -> %s\n" lib (String.concat ", " pkg);
+         ) Opam.findlib;
+
+  output_string fh "depends: [ \"ocamlfind\" ";
   List.iter (output_depend fh) d;
   output_string fh "]\n";
   if opt <> [] then (
