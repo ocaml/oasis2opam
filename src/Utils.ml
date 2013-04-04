@@ -53,7 +53,7 @@ let make_temp_dir () =
   Unix.mkdir d 0o777;
   d
 
-let only_filename d =
+let single_filename d =
   assert(Sys.is_directory d);
   let fn = Sys.readdir d in
   if Array.length fn <> 1 then

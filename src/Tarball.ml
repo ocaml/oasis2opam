@@ -94,7 +94,7 @@ let get_oasis_md5 url =
     try
       Unix.chdir tmp_dir;
       download url;
-      let tarball = only_filename tmp_dir in
+      let tarball = single_filename tmp_dir in
       let pkg_md5 = get_oasis_md5_of_tarball tarball in
       Unix.chdir cwd;
       rm_recursively tmp_dir;
