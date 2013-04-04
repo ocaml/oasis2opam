@@ -24,18 +24,6 @@ open Printf
 open OASISTypes
 open Utils
 
-(* Global variabes & helpers
- ***********************************************************************)
-
-let oasis_file = ref "_oasis"
-let url = ref "" (* tarball URL *)
-
-let specs = [
-  "-f", Arg.Set_string oasis_file,
-  "<file> oasis file used fo generate the OPAM package (default: from the URL)";
-]
-
-
 (* Write OPAM "descr" & "url" files.
  ***********************************************************************)
 let opam_descr pkg =
@@ -47,9 +35,8 @@ let opam_descr pkg =
    | None -> warn "Consider setting \"Description:\" in your _oasis file");
   close_out fh
 
-let opam_url pkg url tarball =
+let opam_url pkg url md5 =
   let fh = open_out(Filename.concat (opam_dir pkg) "url") in
-  let md5 = Digest.to_hex(Digest.file tarball) in
   fprintf fh "archive: %S\nchecksum: %S\n" url md5;
   close_out fh
 
@@ -68,11 +55,15 @@ let rec get_first_email = function
 
 let output_maintainer fh pkg =
   if pkg.maintainers = [] then
-    fatal_error "You must \"Maintainers:\" in your _oasis file.";
+    warn "Consider setting \"Maintainers:\" in your _oasis file.";
   match get_first_email pkg.maintainers with
   | Some e -> fprintf fh "maintainer: %S\n" e
   | None ->
-     fatal_error "You must give an email in the oasis \"Maintainers:\" field."
+     match get_first_email pkg.authors with
+     | Some e -> fprintf fh "maintainer: %S\n" e
+     | None -> fatal_error "You must give an email in the oasis \
+                           \"Maintainers:\" or \"Authors:\" field (preferably \
+                           the former)."
 
 let output_authors fh pkg =
   if pkg.authors = [] then
@@ -126,22 +117,16 @@ let opam_install pkg =
 ;;
 
 let () =
-  Arg.parse (specs @ OASISContext.args()) (fun u -> url := u)
-            "oasis2opam <url> or oasis2opam <tarball>";
-  let tmp_dir = Filename.temp_file "oasis2opam" "" in
-  let tarball = Filename.concat tmp_dir "tarball.tar.gz" in
-  try
-    Unix.unlink tmp_dir;
-    Unix.mkdir tmp_dir 0o777;
-    (* Tarball.download !url tarball; *)
-    let pkg = OASISParse.from_file !OASISContext.default !oasis_file in
-    let dir = opam_dir pkg in
-    (try Unix.mkdir dir 0o777 with Unix.Unix_error (Unix.EEXIST, _, _) -> ());
-    info (sprintf "Create OPAM package %S." dir);
-    opam_descr pkg;
-    opam_url pkg !url tarball;
-    opam_opam pkg;
-    (* Clean up *)
-    rm_recursively tmp_dir
-  with Exit ->
-    rm_recursively tmp_dir
+  let url = ref "" in
+  let specs = Arg.align(OASISContext.args()) in
+  let usage_msg = "oasis2opam <url> or oasis2opam <tarball>" in
+  Arg.parse specs (fun u -> url := u) usage_msg;
+  if !url = "" then (Arg.usage specs usage_msg; exit 1);
+
+  let pkg, md5 = Tarball.get_oasis_md5 !url in
+  let dir = opam_dir pkg in
+  (try Unix.mkdir dir 0o777 with Unix.Unix_error (Unix.EEXIST, _, _) -> ());
+  opam_descr pkg;
+  opam_url pkg !url md5;
+  opam_opam pkg;
+  info (sprintf "OPAM package %S created." dir)

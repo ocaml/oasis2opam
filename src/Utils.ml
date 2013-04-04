@@ -29,16 +29,11 @@ let () =
 let info s = (!OASISContext.default).OASISContext.printf `Info s
 let warn s = (!OASISContext.default).OASISContext.printf `Warning s
 let error s = (!OASISContext.default).OASISContext.printf `Error s
-let fatal_error s = error s; raise Exit
+let fatal_error s = error s; exit 1
 
 (* Directory name that OPAM expects for a package. *)
 let opam_dir pkg =
   pkg.name ^ "." ^ OASISVersion.string_of_version pkg.version
 
-let rec rm_recursively d =
-  if Sys.is_directory d then (
-    let fn = Array.map (Filename.concat d) (Sys.readdir d) in
-    Array.iter rm_recursively fn;
-    Unix.rmdir d
-  )
-  else Unix.unlink d
+let rm_no_error fname =
+  (try Unix.unlink fname with _ -> ())
