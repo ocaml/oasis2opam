@@ -25,7 +25,7 @@ PKGVERSION  = $(shell oasis query version)
 PKG_TARBALL = $(PKGNAME)-$(PKGVERSION).tar.gz
 
 DISTFILES   = README.md _oasis setup.ml _tags \
-  Makefile $(wildcard $(addprefix src/, *.ml))
+  Makefile $(wildcard $(addprefix src/, *.ml *.mli))
 
 .PHONY: all byte native configure doc test install uninstall reinstall
 
@@ -44,7 +44,7 @@ test doc install uninstall reinstall: all
 .PHONY: dist tar headache
 dist tar: $(DISTFILES)
 	mkdir $(PKGNAME)-$(PKGVERSION)
-	cp -r $(DISTFILES) $(PKGNAME)-$(PKGVERSION)/
+	cp --parents -r $(DISTFILES) $(PKGNAME)-$(PKGVERSION)/
 #	There is no point in having a setup.ml independent of oasis
 #	because the program depends on oasis anyway.
 	tar -zcvf $(PKG_TARBALL) $(PKGNAME)-$(PKGVERSION)
