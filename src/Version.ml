@@ -46,3 +46,6 @@ let satisfy_both v1 v2 =
   | Some _, None -> v1
   | None, Some _ -> v2
   | Some v1, Some v2 -> Some(comparator_reduce (VAnd(v1, v2)))
+
+let max v1 v2 =
+  if OASISVersion.version_compare v1 v2 <= 0 then v2 else v1
