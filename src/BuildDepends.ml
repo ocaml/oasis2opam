@@ -201,7 +201,7 @@ let output fh pkg =
   )
 
 (* Output findlib libraries provided by several OPAM packages. *)
-let output_duplicate fh =
+let output_duplicates fh =
   let output lib pkgs =
     match pkgs with
     | [] | [_] -> ()

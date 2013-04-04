@@ -117,10 +117,19 @@ let opam_install pkg =
 ;;
 
 let () =
+  let duplicates = ref false in
+  let specs = [
+    "--duplicates", Arg.Set duplicates,
+    " output a list of packages providing the same ocamlfind library";
+  ] in
   let url = ref "" in
-  let specs = Arg.align(OASISContext.args()) in
+  let specs = Arg.align(specs @ OASISContext.args()) in
   let usage_msg = "oasis2opam <url or tarball>" in
   Arg.parse specs (fun u -> url := u) usage_msg;
+  if !duplicates then (
+    BuildDepends.output_duplicates stdout;
+    exit 0;
+  );
   if !url = "" then (Arg.usage specs usage_msg; exit 1);
 
   let pkg, md5 = Tarball.get_oasis_md5 !url in
