@@ -154,7 +154,10 @@ let is_compulsory flags cond =
   let eval_tst name =
     try
       let t = M.find name flags in
-      (* FIXME: how to eval flags? *)
+      (* FIXME: how to eval flags?  See:
+         https://github.com/gildor478/oasis2debian/blob/master/src/Expr.ml
+         https://github.com/gildor478/oasis2debian/blob/master/src/Arch.ml
+       *)
       string_of_bool(OASISExpr.choose (fun _ -> "false") t)
     with Not_found -> "false" in
   OASISExpr.choose eval_tst cond
