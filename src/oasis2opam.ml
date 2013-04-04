@@ -83,7 +83,7 @@ let output_tags fh pkg =
 let output_build_install fh pkg =
   output_string fh "build: [\n  \
                       [\"ocaml\" \"setup.ml\" \"-configure\" \
-                        \"--prefix\" \"%%{prefix}%%\"]\n  \
+                        \"--prefix\" \"%{prefix}%\"]\n  \
                       [\"ocaml\" \"setup.ml\" \"-build\"]\n  \
                       [\"ocaml\" \"setup.ml\" \"-install\"]\n\
                     ]\n\
