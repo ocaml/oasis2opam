@@ -119,7 +119,7 @@ let opam_install pkg =
 let () =
   let url = ref "" in
   let specs = Arg.align(OASISContext.args()) in
-  let usage_msg = "oasis2opam <url> or oasis2opam <tarball>" in
+  let usage_msg = "oasis2opam <url or tarball>" in
   Arg.parse specs (fun u -> url := u) usage_msg;
   if !url = "" then (Arg.usage specs usage_msg; exit 1);
 
