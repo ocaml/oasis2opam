@@ -93,17 +93,33 @@ module Opam = struct
     Array.iter add pkg_ver;
     M.map (fun pkgs -> merge_versions pkgs) !m
 
-  (* Return the OPAM package containing the findlib module.  See
-     https://github.com/OCamlPro/opam/issues/573 *)
-  let of_findlib p v =
-    let opam = try M.find p findlib
-               with Not_found -> [] in
-    (* Assume the findlib and OPAM version constraint coincide
-       as it is the case for people using oasis. *)
-    (opam, v)
-
   let to_string (p, v) =
     p ^ " (" ^ OASISVersion.string_of_version v ^ ")"
+
+  (* Return the OPAM package containing the findlib module.  See
+     https://github.com/OCamlPro/opam/issues/573 *)
+  let of_findlib lib =
+    try
+      let pkgs = M.find lib findlib in
+      match pkgs with
+      | [] | [_] -> pkgs
+      | _ ->
+         warn(sprintf "%S provided by OPAM %s."
+                      lib (String.concat ", " (List.map to_string pkgs)));
+         pkgs
+    with Not_found ->
+      fatal_error(sprintf "OPAM package for %S not found." lib)
+
+  (* Tells whether the two list of packages are equal.  Do not care
+     about versions.  Assume the list are sorted as [of_findlib]
+     provides them.  *)
+  let rec compare_pkgs p1 p2 = match p1, p2 with
+    | [], [] -> 0
+    | (p1,_) :: tl1, (p2,_) :: tl2 ->
+       let cp = String.compare p1 p2 in
+       if cp <> 0 then cp else compare_pkgs tl1 tl2
+    | _, [] -> 1
+    | [], _ -> -1
 end
 
 (* Gather findlib packages
@@ -155,28 +171,22 @@ let is_compulsory flags cond =
 (* Format OPAM output
  ***********************************************************************)
 
-let output_depend fh (lib, v,_) =
-  (* FIXME: must make a reverse search: findlib package → opam package *)
-  let opam, v = Opam.of_findlib lib v in
-  (* If there is more than one OPAM package providing the library,
-     warn the user. *)
-  match opam with
-  | [] ->
-     fatal_error(sprintf "OPAM package for %S not found." lib)
+let string_of_package pkg version =
+  match version with
+  | None -> sprintf "%S" pkg
+  | Some v -> sprintf "%S {%s}" pkg (Version.string_of_comparator v)
+
+let output_packages fh (pkgs, v) =
+  match pkgs with
+  | [] -> ()
   | [pkg, _version] ->
-     fprintf fh "%S " pkg;
-     (match v with
-      | None -> ()
-      | Some v -> fprintf fh "{%s} " (Version.string_of_comparator v))
+     output_string fh (string_of_package pkg v);
+     output_char fh ' '
   | _ ->
      (* When multiple packages provide a given ocamlfind library, do
-        not choose, list them all as possible choices.  In this case,
-        it does not make sense to use a version since it is not sync
-        with the ocamlfind one. *)
-     let pkgs = String.concat ", " (List.map Opam.to_string opam) in
-     warn(sprintf "%S provided by OPAM %s." lib pkgs);
+        not choose, list them all as possible choices.  *)
      output_char fh '(';
-     let pkgs = List.map (fun (p,_) -> sprintf "%S" p) opam in
+     let pkgs = List.map (fun (p,_) -> string_of_package p v) pkgs in
      output_string fh (String.concat " | " pkgs);
      output_string fh ") "
 
@@ -189,13 +199,27 @@ let output fh pkg =
   let deps, opt = List.partition (fun (_,_,c) -> is_compulsory flags c) deps in
 
   output_string fh "depends: [ \"ocamlfind\" ";
-  List.iter (output_depend fh) deps;
+  let pkgs = List.map (fun (l,v,_) -> (Opam.of_findlib l, v)) deps in
+  let pkgs = make_unique
+               ~cmp:(fun (p1,_) (p2, _) -> Opam.compare_pkgs p1 p2)
+               ~merge:(fun (p, v1) (_, v2) -> (p, Version.satisfy_both v1 v2))
+               pkgs in
+  List.iter (output_packages fh) pkgs;
   output_string fh "]\n";
   if opt <> [] then (
+    (* Optional packages are a simple "or-formula".  Gather all packages. *)
     output_string fh "depopts: [ ";
-    List.iter (output_depend fh) opt;
+    let add_pkgs pkgs (l,v,_) =
+      List.fold_left (fun pk (p,_) -> (p,v) :: pk) pkgs (Opam.of_findlib l) in
+    let pkgs = List.fold_left add_pkgs [] opt in
+    let pkgs = make_unique
+                 ~cmp:(fun (p1,_) (p2,_) -> String.compare p1 p2)
+                 ~merge:(fun (p, v1) (_, v2) -> (p, Version.satisfy_both v1 v2))
+                 pkgs in
+    List.iter (fun (p,v) -> output_string fh (string_of_package p v)) pkgs;
     output_string fh "]\n";
   )
+
 
 (* Output findlib libraries provided by several OPAM packages. *)
 let output_duplicates fh =

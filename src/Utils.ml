@@ -73,3 +73,15 @@ let read_whole_file fname =
   done;
   close_in fh;
   Buffer.contents buf
+
+let rec make_unique_loop ~cmp ~merge = function
+  | [] -> []
+  | e1 :: e2 :: tl when cmp e1 e2 = 0 ->
+     make_unique_loop ~cmp ~merge (merge e1 e2 :: tl)
+  | e :: tl -> e :: make_unique_loop ~cmp ~merge tl
+
+(* Make sure that all elements in [l] occurs one time only.  If
+   duplicate elements [e1] and [e2] are found (i.e. [cmp e1 e2 = 0]),
+   they are merged (i.e. replaced by [merge e1 e2]). *)
+let make_unique ~cmp ~merge l =
+  make_unique_loop ~cmp ~merge (List.sort cmp l)
