@@ -85,7 +85,7 @@ let output_build_install fh pkg =
                [\"ocaml\" \"setup.ml\" \"-configure\" \
                  \"--prefix\" \"%%{prefix}%%\"]\n  \
                [\"ocaml\" \"setup.ml\" \"-build\"]\n  \
-               [\"ocaml\" \"setup.ml\" \"-install\"]\n  \
+               [\"ocaml\" \"setup.ml\" \"-install\"]\n\
              ]\n\
              remove: [\n  \
                [\"ocamlfind\" \"remove\" %S]\n\
@@ -103,9 +103,7 @@ let opam_opam pkg =
    | None -> warn "Consider setting \"Homepage:\" in your _oasis file");
   output_tags fh pkg;
   output_build_install fh pkg;
-  output_string fh "depends: [";
   BuildDepends.output fh pkg;
-  output_string fh "]\n";
   (match pkg.ocaml_version with
    | Some v -> fprintf fh "ocaml-version: %s\n"
                       (Version.string_of_comparator v)
