@@ -20,6 +20,7 @@
 (*  USA.                                                                   *)
 (***************************************************************************)
 
+open Printf
 open OASISTypes
 
 let () =
@@ -37,3 +38,25 @@ let opam_dir pkg =
 
 let rm_no_error fname =
   (try Unix.unlink fname with _ -> ())
+
+let rec rm_recursively d =
+  if Sys.is_directory d then (
+    let fn = Array.map (Filename.concat d) (Sys.readdir d) in
+    Array.iter rm_recursively fn;
+    Unix.rmdir d
+  )
+  else Unix.unlink d
+
+let make_temp_dir () =
+  let d = Filename.temp_file "oasis2opam" "" in
+  Unix.unlink d;
+  Unix.mkdir d 0o777;
+  d
+
+let only_filename d =
+  assert(Sys.is_directory d);
+  let fn = Sys.readdir d in
+  if Array.length fn <> 1 then
+    warn(sprintf "oasis2opam: %S does not contain a single file: %s."
+                 d (String.concat ", " (Array.to_list fn)));
+  Filename.concat d fn.(0)

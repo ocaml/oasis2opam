@@ -30,7 +30,7 @@ let on_err pgm msg c =
     if c = 127 then raise(Program_not_found pgm)
     else fatal_error msg
 
-let wget ~retry url dst =
+let wget ~retry url =
   let verbosity =
     let open OASISContext in
     if !default.quiet then "--quiet"
@@ -40,9 +40,9 @@ let wget ~retry url dst =
     ~ctxt:!OASISContext.default
     ~f_exit_code:(on_err "wget" (sprintf "wget could not download %S.\n" url))
     "wget" ["--no-check-certificate"; "-t"; string_of_int retry;
-            verbosity; "-O"; dst; url ]
+            verbosity; url ]
 
-let curl ~retry url dst =
+let curl ~retry url =
   let verbosity =
     let open OASISContext in
     if !default.quiet then "--silent"
@@ -53,7 +53,7 @@ let curl ~retry url dst =
     ~f_exit_code:(on_err "curl" (sprintf "curl could not download %S.\n" url))
     "curl" ["--insecure"; "--retry"; string_of_int retry;
             "--retry-delay"; "2"; verbosity; "--location";
-            "--output"; dst; url ]
+            "--remote-name"; url ]
 
 let tar cmd tarball =
   let f_exit_code c =
@@ -63,10 +63,10 @@ let tar cmd tarball =
   OASISExec.run_read_output ~ctxt:!OASISContext.default ~f_exit_code
                             "tar" ("--file" :: tarball :: cmd)
 
-let download ?(retry=2) url dst =
-  try wget ~retry url dst
+let download ?(retry=2) url =
+  try wget ~retry url
   with Program_not_found _ ->
-    try curl ~retry url dst
+    try curl ~retry url
     with Program_not_found _ ->
       fatal_error "Cannot find \"wget\" nor \"curl\"."
 
@@ -89,17 +89,25 @@ let get_oasis_md5 url =
   let is_http = OASISString.starts_with "http://" url
                 || OASISString.starts_with "https://" url in
   if is_http then (
-    let tarball = Filename.temp_file "oasis2opam" ".tar.gz" in
+    let cwd = Unix.getcwd() in
+    let tmp_dir = make_temp_dir() in
     try
-      download url tarball;
+      Unix.chdir tmp_dir;
+      download url;
+      let tarball = only_filename tmp_dir in
       let pkg_md5 = get_oasis_md5_of_tarball tarball in
-      rm_no_error tarball;
+      Unix.chdir cwd;
+      rm_recursively tmp_dir;
       pkg_md5
     with
     | Program_not_found p ->
-       rm_no_error tarball;
+       Unix.chdir cwd;
+       rm_recursively tmp_dir;
        fatal_error (sprintf "The program %S was not found." p)
-    | e -> rm_no_error tarball; raise e
+    | e ->
+       Unix.chdir cwd;
+       rm_recursively tmp_dir;
+       raise e
   )
   else
     get_oasis_md5_of_tarball url
