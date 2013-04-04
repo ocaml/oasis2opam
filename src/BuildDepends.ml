@@ -63,15 +63,10 @@ module Opam = struct
     with Not_found -> ()
 
   (* Keep only the larger version for each package. *)
-  let rec merge_versions_loop = function
-    | [] -> []
-    | (p1, v1) :: (p2, v2) :: tl when p1 = p2 ->
-       merge_versions_loop ((p1, Version.max v1 v2) :: tl)
-    | p_v :: tl -> p_v :: merge_versions_loop tl
-
   let merge_versions pkgs =
-    let pkgs = List.sort (fun (p1,_) (p2,_) -> String.compare p1 p2) pkgs in
-    merge_versions_loop pkgs
+    make_unique ~cmp:(fun (p1,_) (p2,_) -> String.compare p1 p2)
+                ~merge:(fun (p, v1) (_, v2) -> (p, Version.max v1 v2))
+                pkgs
 
   (* FIXME: we may want to track versions and add a constraint ">="
      when a findlib package is provided only be later OPAM versions. *)
@@ -137,16 +132,12 @@ let findlib_of_section deps = function
      add_depends_of_build bs.bs_build_depends bs.bs_build deps
   | _ -> deps
 
-let rec merge_findlib_depends_sorted = function
-  | [_] | [] as deps -> deps
-  | (p1, v1, c1) :: (p2, v2, c2) :: tl when p1 = p2 ->
-     let v = Version.satisfy_both v1 v2 in
-     merge_findlib_depends_sorted ((p1, v, c1 @ c2) :: tl)
-  | dep :: tl -> dep :: merge_findlib_depends_sorted tl
-
-let merge_findlib_depends d =
-  let d = List.sort (fun (p1,_,_) (p2,_,_) -> String.compare p1 p2) d in
-  merge_findlib_depends_sorted d
+let merge_findlib_depends =
+  let merge (p1, v1, c1) (p2, v2, c2) =
+    (p1, Version.satisfy_both v1 v2, c1 @ c2) in
+  fun d -> make_unique ~cmp:(fun (p1,_,_) (p2,_,_) -> String.compare p1 p2)
+                    ~merge
+                    d
 
 (* Compulsory and optional findlib packages
  ***********************************************************************)
