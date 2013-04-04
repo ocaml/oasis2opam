@@ -24,8 +24,8 @@ PKGNAME	    = $(shell oasis query name)
 PKGVERSION  = $(shell oasis query version)
 PKG_TARBALL = $(PKGNAME)-$(PKGVERSION).tar.gz
 
-DISTFILES   = README.md _oasis setup.ml \
-  Makefile setup.ml $(wildcard _tags src/)
+DISTFILES   = README.md _oasis setup.ml _tags \
+  Makefile $(wildcard $(addprefix src/, *.ml))
 
 .PHONY: all byte native configure doc test install uninstall reinstall
 
