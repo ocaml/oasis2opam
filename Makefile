@@ -24,8 +24,8 @@ PKGNAME	    = $(shell oasis query name)
 PKGVERSION  = $(shell oasis query version)
 PKG_TARBALL = $(PKGNAME)-$(PKGVERSION).tar.gz
 
-DISTFILES   = AUTHORS.txt INSTALL.txt README.txt _oasis \
-  Makefile setup.ml myocamlbuild.ml $(wildcard _tags src/)
+DISTFILES   = README.md _oasis setup.ml \
+  Makefile setup.ml $(wildcard _tags src/)
 
 .PHONY: all byte native configure doc test install uninstall reinstall
 
@@ -42,7 +42,7 @@ test doc install uninstall reinstall: all
 	ocaml setup.ml -$@
 
 .PHONY: dist tar headache
-dist tar: setup.ml
+dist tar: $(DISTFILES)
 	mkdir $(PKGNAME)-$(PKGVERSION)
 	cp -r $(DISTFILES) $(PKGNAME)-$(PKGVERSION)/
 #	There is no point in having a setup.ml independent of oasis

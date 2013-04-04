@@ -6,3 +6,4 @@ _build/
 setup.data
 setup.log
 oasis2opam.*/
+*.tar.gz
