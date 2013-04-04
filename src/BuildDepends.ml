@@ -29,7 +29,14 @@ module M = Map.Make(String)
 
 let findlib_with_ocaml =
   let pkg = [ "bigarray"; "camlp4"; "dynlink"; "graphics"; "labltk"; "num";
-              "ocamlbuild"; "stdlib"; "str"; "threads"; "unix" ] in
+              "ocamlbuild"; "stdlib"; "str"; "threads"; "unix";
+              "camlp4"; "camlp4.exceptiontracer"; "camlp4.extend";
+              "camlp4.foldgenerator"; "camlp4.fulllib"; "camlp4.gramlib";
+              "camlp4.lib"; "camlp4.listcomprehension";
+              "camlp4.locationstripper"; "camlp4.macro";
+              "camlp4.mapgenerator"; "camlp4.metagenerator";
+              "camlp4.profiler"; "camlp4.quotations"; "camlp4.quotations.o";
+              "camlp4.quotations.r"; "camlp4.tracer" ] in
   List.fold_left (fun s e -> S.add e s) S.empty pkg
 
 module Opam = struct
