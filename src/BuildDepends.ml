@@ -160,28 +160,25 @@ let output_depend fh (lib, v,_) =
   let opam, v = Opam.of_findlib lib v in
   (* If there is more than one OPAM package providing the library,
      warn the user. *)
-  (match opam with
-   | [] ->
-      fatal_error(sprintf "OPAM package for %S not found." lib)
-   | [pkg, _version] ->
-      fprintf fh "%S " pkg;
-   | _ ->
-      (* FIXME: what is a good heuristic to choose among packages
-         providing the same lib? Assume the one with the later version
-         is chosen (the "more recent", makes sense is a package is
-         renamed).  Better first. *)
-      let cmp_pkg (p1, v1) (p2, v2) =
-        let cmp_v = OASISVersion.version_compare v2 v1 in
-        if cmp_v <> 0 then cmp_v
-        else String.compare p1 p2  in
-      let opam = List.sort cmp_pkg opam in
-      let (o, _) = List.hd opam in
-      let pkgs = String.concat ", " (List.map Opam.to_string opam) in
-      warn(sprintf "%S provided by OPAM %s; chose %S." lib pkgs o);
-      fprintf fh "%S " o);
-  match v with
-  | None -> ()
-  | Some v -> fprintf fh "{%s} " (Version.string_of_comparator v)
+  match opam with
+  | [] ->
+     fatal_error(sprintf "OPAM package for %S not found." lib)
+  | [pkg, _version] ->
+     fprintf fh "%S " pkg;
+     (match v with
+      | None -> ()
+      | Some v -> fprintf fh "{%s} " (Version.string_of_comparator v))
+  | _ ->
+     (* When multiple packages provide a given ocamlfind library, do
+        not choose, list them all as possible choices.  In this case,
+        it does not make sense to use a version since it is not sync
+        with the ocamlfind one. *)
+     let pkgs = String.concat ", " (List.map Opam.to_string opam) in
+     warn(sprintf "%S provided by OPAM %s." lib pkgs);
+     output_char fh '(';
+     let pkgs = List.map (fun (p,_) -> sprintf "%S" p) opam in
+     output_string fh (String.concat " | " pkgs);
+     output_string fh ") "
 
 let output fh pkg =
   let deps = List.fold_left findlib_of_section [] pkg.sections in
