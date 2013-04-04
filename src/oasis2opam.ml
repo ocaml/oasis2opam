@@ -105,7 +105,7 @@ let opam_opam pkg =
   output_build_install fh pkg;
   BuildDepends.output fh pkg;
   (match pkg.ocaml_version with
-   | Some v -> fprintf fh "ocaml-version: %s\n"
+   | Some v -> fprintf fh "ocaml-version: [ %s ]\n"
                       (Version.string_of_comparator v)
    | None -> ());
   close_out fh
