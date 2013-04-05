@@ -61,9 +61,10 @@ let output_maintainer fh pkg =
   | None ->
      match get_first_email pkg.authors with
      | Some e -> fprintf fh "maintainer: %S\n" e
-     | None -> fatal_error "You must give an email in the oasis \
-                           \"Maintainers:\" or \"Authors:\" field (preferably \
-                           the former)."
+     | None ->
+        error "Give an email in oasis \"Maintainers:\" or \
+               \"Authors:\" fields (preferably the former).";
+        fprintf fh "maintainer: \"opam-devel@lists.ocaml.org\"\n"
 
 let output_authors fh pkg =
   match pkg.authors with
