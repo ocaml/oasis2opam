@@ -29,14 +29,7 @@ module M = Map.Make(String)
 
 let findlib_with_ocaml =
   let pkg = [ "bigarray"; "camlp4"; "dynlink"; "graphics"; "labltk"; "num";
-              "ocamlbuild"; "stdlib"; "str"; "threads"; "unix";
-              "camlp4"; "camlp4.exceptiontracer"; "camlp4.extend";
-              "camlp4.foldgenerator"; "camlp4.fulllib"; "camlp4.gramlib";
-              "camlp4.lib"; "camlp4.listcomprehension";
-              "camlp4.locationstripper"; "camlp4.macro";
-              "camlp4.mapgenerator"; "camlp4.metagenerator";
-              "camlp4.profiler"; "camlp4.quotations"; "camlp4.quotations.o";
-              "camlp4.quotations.r"; "camlp4.tracer" ] in
+              "ocamlbuild"; "stdlib"; "str"; "threads"; "unix"; "camlp4" ] in
   List.fold_left (fun s e -> S.add e s) S.empty pkg
 
 module Opam = struct
@@ -129,7 +122,12 @@ end
 
 let add_depends_of_build d cond deps =
   let findlib deps = function
-    | FindlibPackage(p, v) -> (p, v, cond) :: deps
+    | FindlibPackage(lib, v) ->
+       (* If the Findlib library contains a dot, it is a
+          sub-library.  Only keep the main lib. *)
+       let lib = try String.sub lib 0 (String.index lib '.')
+                 with Not_found -> lib in
+       (lib, v, cond) :: deps
     | InternalLibrary _ -> deps in
   List.fold_left findlib deps d
 
@@ -145,6 +143,13 @@ let merge_findlib_depends =
   fun d -> make_unique ~cmp:(fun (p1,_,_) (p2,_,_) -> String.compare p1 p2)
                     ~merge
                     d
+
+let get_findlib_dependencies pkg =
+  let deps = List.fold_left findlib_of_section [] pkg.sections in
+  let deps = merge_findlib_depends deps in
+  (* Filter out the packages coming with OCaml *)
+  List.filter (fun (p,_,_) -> not(S.mem p findlib_with_ocaml)) deps
+
 
 (* Compulsory and optional findlib packages
  ***********************************************************************)
@@ -192,10 +197,7 @@ let output_packages fh (pkgs, v) =
      output_string fh ") "
 
 let output fh pkg =
-  let deps = List.fold_left findlib_of_section [] pkg.sections in
-  let deps = merge_findlib_depends deps in
-  (* filter out the packages coming with OCaml *)
-  let deps = List.filter (fun (p,_,_) -> not(S.mem p findlib_with_ocaml)) deps in
+  let deps = get_findlib_dependencies pkg in
   let flags = get_flags pkg.sections in
   let deps, opt = List.partition (fun (_,_,c) -> is_compulsory flags c) deps in
 
