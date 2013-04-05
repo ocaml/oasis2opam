@@ -66,10 +66,13 @@ let output_maintainer fh pkg =
                            the former)."
 
 let output_authors fh pkg =
-  if pkg.authors = [] then
-    fatal_error "You must set \"Authors:\" in your _oasis file.";
-  let a = String.concat " " (List.map (sprintf "%S") pkg.authors) in
-  fprintf fh "authors: [%s]\n" a
+  match pkg.authors with
+  | [] -> fatal_error "You must set \"Authors:\" in your _oasis file.";
+  | [a] -> fprintf fh "authors: [ %S ]\n" a
+  | a :: tl ->
+     fprintf fh "authors: [ %S" a;
+     List.iter (fun a -> fprintf fh "\n           %S" a) tl;
+     fprintf fh " ]\n"
 
 let output_tags fh pkg =
   if pkg.categories <> [] then (
