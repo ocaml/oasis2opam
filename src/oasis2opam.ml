@@ -31,7 +31,7 @@ let opam_descr pkg =
   output_string fh pkg.synopsis;
   output_char fh '\n';
   (match pkg.description with
-   | Some d -> output_string fh d; output_char fh '\n'
+   | Some d -> output_wrapped fh d; output_char fh '\n'
    | None -> warn "Consider setting \"Description:\" in your _oasis file");
   close_out fh
 

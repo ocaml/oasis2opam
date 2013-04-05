@@ -85,3 +85,27 @@ let rec make_unique_loop ~cmp ~merge = function
    they are merged (i.e. replaced by [merge e1 e2]). *)
 let make_unique ~cmp ~merge l =
   make_unique_loop ~cmp ~merge (List.sort cmp l)
+
+
+let space_re = Str.regexp "[ \t\n\r]+"
+
+(* TODO: implement the more sophisticated TeX version? *)
+let output_wrapped fh ?(width=70) text =
+  match Str.split space_re text with
+  | [] -> ()
+  | [w] -> output_string fh w
+  | w0 :: words ->
+     output_string fh w0;
+     let space_left = ref(width - String.length w0) in
+     let output_word w =
+       let len_w = String.length w in
+       if 1 + len_w > !space_left then (
+         output_char fh '\n';
+         space_left := width - len_w;
+       )
+       else (
+         space_left := !space_left - 1 - len_w;
+         output_char fh ' ';
+       );
+       output_string fh w in
+     List.iter output_word words
