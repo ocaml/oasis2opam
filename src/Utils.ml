@@ -87,6 +87,16 @@ let make_unique ~cmp ~merge l =
   make_unique_loop ~cmp ~merge (List.sort cmp l)
 
 
+let quote_re = Str.regexp "\""
+
+(* Similar String.escaped but only escape '"' so UTF-8 chars are not
+   escaped. *)
+let escaped s =
+  if String.contains s '"' then
+    Str.global_replace quote_re "\\\"" s
+  else s
+
+
 let space_re = Str.regexp "[ \t\n\r]+"
 
 (* TODO: implement the more sophisticated TeX version? *)

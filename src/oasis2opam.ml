@@ -69,10 +69,10 @@ let output_maintainer fh pkg =
 let output_authors fh pkg =
   match pkg.authors with
   | [] -> fatal_error "You must set \"Authors:\" in your _oasis file.";
-  | [a] -> fprintf fh "authors: [ %S ]\n" a
+  | [a] -> fprintf fh "authors: [ \"%s\" ]\n" (Utils.escaped a)
   | a :: tl ->
-     fprintf fh "authors: [ %S" a;
-     List.iter (fun a -> fprintf fh "\n           %S" a) tl;
+     fprintf fh "authors: [ \"%s\"" (Utils.escaped a);
+     List.iter (fun a -> fprintf fh "\n           \"%s\"" (Utils.escaped a)) tl;
      fprintf fh " ]\n"
 
 let output_tags fh pkg =
