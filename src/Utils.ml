@@ -90,7 +90,7 @@ let make_unique ~cmp ~merge l =
 let space_re = Str.regexp "[ \t\n\r]+"
 
 (* TODO: implement the more sophisticated TeX version? *)
-let output_wrapped fh ?(width=70) text =
+let output_paragraph fh ?(width=70) text =
   match Str.split space_re text with
   | [] -> ()
   | [w] -> output_string fh w
@@ -109,3 +109,13 @@ let output_wrapped fh ?(width=70) text =
        );
        output_string fh w in
      List.iter output_word words
+
+let paragraph_delim = Str.regexp "[\n\r][ \t]*[\n\r][ \t\n\r]*"
+
+(* Assume that blanks lines delimit paragraphs (which we do not want
+   to merge together). *)
+let output_wrapped fh ?width text =
+  let paragraphs = Str.split paragraph_delim text in
+  List.iter (fun p -> output_paragraph fh ?width p;
+                   output_string fh "\n\n"
+            ) paragraphs
