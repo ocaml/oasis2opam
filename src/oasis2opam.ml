@@ -108,6 +108,7 @@ let output_build_install fh pkg =
 let opam_opam pkg =
   let fh = open_out(Filename.concat (opam_dir pkg) "opam") in
   output_string fh "opam-version: \"1\"\n";
+  (* "name:" and "version:" deemed unnecessary. *)
   output_maintainer fh pkg;
   output_authors fh pkg;
   fprintf fh "license: %S\n" (OASISLicense.to_string pkg.license);
@@ -116,6 +117,8 @@ let opam_opam pkg =
    | None -> warn "Consider setting \"Homepage:\" in your _oasis file");
   output_tags fh pkg;
   output_build_install fh pkg;
+  if List.exists (function Doc _ -> true | _  -> false) pkg.sections then
+    output_string fh "build-doc: [ \"ocaml\" \"setup.ml\" \"-doc\" ]\n";
   BuildDepends.output fh pkg;
   (match pkg.ocaml_version with
    | Some v -> fprintf fh "ocaml-version: [ %s ]\n"
@@ -123,11 +126,13 @@ let opam_opam pkg =
    | None -> ());
   close_out fh
 
+
 let opam_install pkg =
   let fh = open_out(Filename.concat (opam_dir pkg) (pkg.name ^ ".install")) in
   (* TODO *)
   close_out fh
 ;;
+
 
 let () =
   let version = ref false in
