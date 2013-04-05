@@ -1,10 +1,12 @@
 #								-*-conf-*-
 OASISFormat: 0.3
 Name:        oasis2opam
-Version:     0.1
+Version:     0.2
 Synopsis:    Tool to convert OASIS metadata to OPAM package descriptions
 Description: Generate OPAM files from _oasis.  Most of the metadata
-  supported by OPAM is handled.
+  supported by oasis is translated to OPAM.  A simple .install file is
+  written to handle executables (until oasis supports the functionality
+  itself).
 Authors:     Christophe Troestler, Sylvain Le Gall
 Maintainers: Christophe Troestler <Christophe.Troestler@umons.ac.be>
 Categories:  http://build, http://install
