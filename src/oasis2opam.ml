@@ -128,10 +128,35 @@ let opam_opam pkg =
 
 
 let opam_install pkg =
-  let fh = open_out(Filename.concat (opam_dir pkg) (pkg.name ^ ".install")) in
-  (* TODO *)
-  close_out fh
-;;
+  (* FIXME: This is extremely naive.  This functionality should be in
+     an oasis plugin.  Until then, we can live with this... *)
+  let gather_exec bins = function
+    | Executable(cs, bs, es) ->
+       let path = Filename.concat "_build" bs.bs_path in
+       let exec = try Filename.chop_extension es.exec_main_is
+                  with _ -> es.exec_main_is in
+       let exec = Filename.concat path exec in
+       (exec, cs.cs_name) :: bins
+    | _ -> bins (* skip other sections *) in
+  let bins = List.fold_left gather_exec [] pkg.sections in
+
+  if bins <> [] then (
+    let dir = Filename.concat (opam_dir pkg) "files" in
+    (try Unix.mkdir dir 0o777 with Unix.Unix_error (Unix.EEXIST, _, _) -> ());
+    let fh = open_out(Filename.concat dir (pkg.name ^ ".install")) in
+
+    output_string fh "bin: [\n";
+    let output_bin (exec, name) =
+      let exec = Utils.escaped exec in
+      let name = Utils.escaped name in
+      fprintf fh "  \"?%s.byte\" {\"%s\"}\n" exec name;
+      fprintf fh "  \"?%s.native\" {\"%s\"}\n" exec name;
+    in
+    List.iter output_bin bins;
+    output_string fh "]\n";
+
+    close_out fh
+  )
 
 
 let () =
@@ -164,4 +189,5 @@ let () =
   opam_descr pkg;
   opam_url pkg !url md5;
   opam_opam pkg;
+  opam_install pkg;
   info (sprintf "OPAM package %S created." dir)
