@@ -25,7 +25,6 @@ open OASISTypes
 open Utils
 
 module S = Set.Make(String)
-module M = Map.Make(String)
 
 let findlib_with_ocaml =
   let pkg = [ "bigarray"; "camlp4"; "dynlink"; "graphics"; "labltk"; "num";
@@ -151,29 +150,6 @@ let get_findlib_dependencies pkg =
   List.filter (fun (p,_,_) -> not(S.mem p findlib_with_ocaml)) deps
 
 
-(* Compulsory and optional findlib packages
- ***********************************************************************)
-
-let get_flags sections =
-  let add m = function
-    | Flag(cs, f) -> M.add cs.cs_name f.flag_default m
-    | _ -> m in
-  List.fold_left add M.empty sections
-
-let is_compulsory flags cond =
-  (* If any condition returns [true] (i.e. a section with these dep
-     must be built), then the dependency is compulsory. *)
-  let eval_tst name =
-    try
-      let t = M.find name flags in
-      (* FIXME: how to eval flags?  See:
-         https://github.com/gildor478/oasis2debian/blob/master/src/Expr.ml
-         https://github.com/gildor478/oasis2debian/blob/master/src/Arch.ml
-       *)
-      string_of_bool(OASISExpr.choose (fun _ -> "false") t)
-    with Not_found -> "false" in
-  OASISExpr.choose eval_tst cond
-
 (* Format OPAM output
  ***********************************************************************)
 
@@ -196,10 +172,9 @@ let output_packages fh (pkgs, v) =
      output_string fh (String.concat " | " pkgs);
      output_string fh ") "
 
-let output fh pkg =
+let output fh flags pkg =
   let deps = get_findlib_dependencies pkg in
-  let flags = get_flags pkg.sections in
-  let deps, opt = List.partition (fun (_,_,c) -> is_compulsory flags c) deps in
+  let deps, opt = List.partition (fun (_,_,c) -> eval_conditional flags c) deps in
 
   output_string fh "depends: [ \"ocamlfind\" ";
   let pkgs = List.map (fun (l,v,_) -> (Opam.of_findlib l, v)) deps in

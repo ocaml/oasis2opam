@@ -23,6 +23,8 @@
 open Printf
 open OASISTypes
 
+module M = Map.Make(String)
+
 let () =
   let open OASISContext in
   default := { !default with ignore_plugins = true }
@@ -134,3 +136,29 @@ let output_wrapped fh ?width text =
        output_string fh "\n\n";
        output tl in
   output paragraphs
+
+(* Evaluate OASIS conditonals
+ ***********************************************************************)
+
+let get_flags sections =
+  let add m = function
+    | Flag(cs, f) -> M.add cs.cs_name f.flag_default m
+    | _ -> m in
+  List.fold_left add M.empty sections
+
+
+let eval_conditional flags cond =
+  (* If any condition returns [true] (i.e. a section with these dep
+     must be built), then the dependency is compulsory. *)
+  let eval_tst name =
+    try
+      let t = M.find name flags in
+      (* FIXME: how to eval flags?  See:
+         https://github.com/gildor478/oasis2debian/blob/master/src/Expr.ml
+         https://github.com/gildor478/oasis2debian/blob/master/src/Arch.ml
+       *)
+      string_of_bool(OASISExpr.choose (fun _ -> "false") t)
+    with Not_found -> "false" in
+  OASISExpr.choose eval_tst cond
+
+;;

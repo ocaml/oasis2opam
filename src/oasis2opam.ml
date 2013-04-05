@@ -107,7 +107,7 @@ let output_build_install fh pkg =
   )
 
 
-let opam_opam pkg =
+let opam_opam flags pkg =
   let fh = open_out(Filename.concat (opam_dir pkg) "opam") in
   output_string fh "opam-version: \"1\"\n";
   (* "name:" and "version:" deemed unnecessary. *)
@@ -121,7 +121,7 @@ let opam_opam pkg =
   output_build_install fh pkg;
   if List.exists (function Doc _ -> true | _  -> false) pkg.sections then
     output_string fh "build-doc: [ \"ocaml\" \"setup.ml\" \"-doc\" ]\n";
-  BuildDepends.output fh pkg;
+  BuildDepends.output fh flags pkg;
   (match pkg.ocaml_version with
    | Some v -> fprintf fh "ocaml-version: [ %s ]\n"
                       (Version.string_of_comparator v)
@@ -129,16 +129,20 @@ let opam_opam pkg =
   close_out fh
 
 
-let opam_install pkg =
+let opam_install flags pkg =
   (* FIXME: This is extremely naive.  This functionality should be in
      an oasis plugin.  Until then, we can live with this... *)
   let gather_exec bins = function
     | Executable(cs, bs, es) ->
-       let path = Filename.concat "_build" bs.bs_path in
-       let exec = try Filename.chop_extension es.exec_main_is
-                  with _ -> es.exec_main_is in
-       let exec = Filename.concat path exec in
-       (exec, cs.cs_name) :: bins
+       if eval_conditional flags bs.bs_install then (
+         (* Binary that will be installed *)
+         let path = Filename.concat "_build" bs.bs_path in
+         let exec = try Filename.chop_extension es.exec_main_is
+                    with _ -> es.exec_main_is in
+         let exec = Filename.concat path exec in
+         (exec, cs.cs_name) :: bins
+       )
+       else bins
     | _ -> bins (* skip other sections *) in
   let bins = List.fold_left gather_exec [] pkg.sections in
 
@@ -186,10 +190,11 @@ let () =
   if !url = "" then (Arg.usage specs usage_msg; exit 1);
 
   let pkg, md5 = Tarball.get_oasis_md5 !url in
+  let flags = get_flags pkg.sections in
   let dir = opam_dir pkg in
   (try Unix.mkdir dir 0o777 with Unix.Unix_error (Unix.EEXIST, _, _) -> ());
   opam_descr pkg;
   opam_url pkg !url md5;
-  opam_opam pkg;
-  opam_install pkg;
+  opam_opam flags pkg;
+  opam_install flags pkg;
   info (sprintf "OPAM package %S created." dir)
