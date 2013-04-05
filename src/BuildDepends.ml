@@ -194,7 +194,9 @@ let output fh flags pkg =
                  ~cmp:(fun (p1,_) (p2,_) -> String.compare p1 p2)
                  ~merge:(fun (p, v1) (_, v2) -> (p, Version.satisfy_both v1 v2))
                  pkgs in
-    List.iter (fun (p,v) -> output_string fh (string_of_package p v)) pkgs;
+    List.iter (fun (p,v) -> output_string fh (string_of_package p v);
+                         output_char fh ' ';
+              ) pkgs;
     output_string fh "]\n";
   )
 
