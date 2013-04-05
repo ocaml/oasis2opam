@@ -116,6 +116,11 @@ let paragraph_delim = Str.regexp "[\n\r][ \t]*[\n\r][ \t\n\r]*"
    to merge together). *)
 let output_wrapped fh ?width text =
   let paragraphs = Str.split paragraph_delim text in
-  List.iter (fun p -> output_paragraph fh ?width p;
-                   output_string fh "\n\n"
-            ) paragraphs
+  let rec output = function
+    | [] -> ()
+    | [p] -> output_paragraph fh ?width p
+    | p :: tl ->
+       output_paragraph fh ?width p;
+       output_string fh "\n\n";
+       output tl in
+  output paragraphs
