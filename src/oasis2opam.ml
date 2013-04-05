@@ -90,8 +90,7 @@ let output_build_install fh pkg =
                         \"--prefix\" \"%{prefix}%\"]\n  \
                       [\"ocaml\" \"setup.ml\" \"-build\"]\n  \
                       [\"ocaml\" \"setup.ml\" \"-install\"]\n\
-                    ]\n\
-                    remove: [\n";
+                    ]\n";
   let add_libs libs = function
     | Library(cs,_,l) ->
        (match l.lib_findlib_parent with
@@ -100,9 +99,12 @@ let output_build_install fh pkg =
        ) :: libs
     | _ -> libs in
   let libs = List.fold_left add_libs [] pkg.sections in
-  let libs = make_unique libs ~cmp:String.compare ~merge:(fun l1 l2 -> l1) in
-  List.iter (fun l -> fprintf fh "  [\"ocamlfind\" \"remove\" %S]\n" l) libs;
-  output_string fh "]\n"
+  if libs <> [] then (
+    output_string fh "remove: [\n";
+    let libs = make_unique libs ~cmp:String.compare ~merge:(fun l1 l2 -> l1) in
+    List.iter (fun l -> fprintf fh "  [\"ocamlfind\" \"remove\" %S]\n" l) libs;
+    output_string fh "]\n"
+  )
 
 
 let opam_opam pkg =
