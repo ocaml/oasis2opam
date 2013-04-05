@@ -11,6 +11,7 @@ Categories:  http://build, http://install
 License:     GPL-3 with OCaml linking exception
 Homepage:    https://github.com/ocaml/oasis2opam
 Plugins:     META (0.3), StdFiles (0.3)
+FilesAB:     src/Conf.ml.ab
 
 Executable oasis2opam
   Path:           src/

@@ -8,3 +8,4 @@ setup.log
 oasis2opam.*/
 *.tar.gz
 *.pdf
+src/Conf.ml

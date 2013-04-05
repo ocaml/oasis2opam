@@ -129,15 +129,23 @@ let opam_install pkg =
 ;;
 
 let () =
+  let version = ref false in
   let duplicates = ref false in
   let specs = [
     "--duplicates", Arg.Set duplicates,
     " output a list of packages providing the same ocamlfind library";
+    "--version", Arg.Set version,
+    " print the oasis2opam version (including the Git hash if relevant)";
   ] in
   let url = ref "" in
   let specs = Arg.align(specs @ OASISContext.args()) in
   let usage_msg = "oasis2opam <url or tarball>" in
   Arg.parse specs (fun u -> url := u) usage_msg;
+  if !version then (
+    printf "Version: %s\n" Conf.version;
+    if Conf.git_hash <> "" then printf "Git hash: %s\n" Conf.git_hash;
+    exit 0
+  );
   if !duplicates then (
     BuildDepends.output_duplicates stdout;
     exit 0;

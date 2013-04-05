@@ -20,26 +20,7 @@
 (*  USA.                                                                   *)
 (***************************************************************************)
 
-(* setup.ml generated for the first time by OASIS v0.3.0 *)
+(*							-*-tuareg-*- *)
 
-let () =
-  try Topdirs.dir_directory (Sys.getenv "OCAML_TOPLEVEL_PATH")
-  with Not_found -> ();;
-
-(* OASIS_START *)
-(* DO NOT EDIT (digest: 7f47a529f70709161149c201ccd90f0b) *)
-#use "topfind";;
-#require "oasis.dynrun";;
-open OASISDynRun;;
-(* OASIS_STOP *)
-
-let git_hash() =
-  try
-    OASISExec.run_read_one_line ~ctxt:!OASISContext.default
-                                "git" ["rev-parse"; "--verify"; "HEAD"]
-  with _ -> "" (* not a development version *)
-
-let _ = BaseEnv.var_define "git_hash" git_hash
-
-
-let () = setup ();;
+let version = "$(pkg_version)"
+let git_hash = "$(git_hash)"
