@@ -90,6 +90,8 @@ module Opam = struct
   let to_string (p, v) =
     p ^ " (" ^ OASISVersion.string_of_version v ^ ")"
 
+  let version0 = OASISVersion.version_of_string "0"
+
   (* Return the OPAM package containing the findlib module.  See
      https://github.com/OCamlPro/opam/issues/573 *)
   let of_findlib lib =
@@ -102,7 +104,8 @@ module Opam = struct
                       lib (String.concat ", " (List.map to_string pkgs)));
          pkgs
     with Not_found ->
-      fatal_error(sprintf "OPAM package for %S not found." lib)
+      error(sprintf "OPAM package for %S not found." lib);
+      [lib, version0]
 
   (* Tells whether the two list of packages are equal.  Do not care
      about versions.  Assume the list are sorted as [of_findlib]
