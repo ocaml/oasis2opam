@@ -85,6 +85,7 @@ module Opam = struct
         add_all_findlib m (opam, version) s 0;
       ) in
     Array.iter add pkg_ver;
+    m := M.add "findlib" [("ocamlfind", Version.none)] !m;
     M.map (fun pkgs -> merge_versions pkgs) !m
 
   let to_string (p, v) =
