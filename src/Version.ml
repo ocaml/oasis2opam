@@ -49,3 +49,6 @@ let satisfy_both v1 v2 =
 
 let max v1 v2 =
   if OASISVersion.version_compare v1 v2 <= 0 then v2 else v1
+
+let none = OASISVersion.version_of_string ""
+

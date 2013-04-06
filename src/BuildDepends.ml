@@ -90,8 +90,6 @@ module Opam = struct
   let to_string (p, v) =
     p ^ " (" ^ OASISVersion.string_of_version v ^ ")"
 
-  let version0 = OASISVersion.version_of_string "0"
-
   (* Return the OPAM package containing the findlib module.  See
      https://github.com/OCamlPro/opam/issues/573 *)
   let of_findlib lib =
@@ -105,7 +103,7 @@ module Opam = struct
          pkgs
     with Not_found ->
       error(sprintf "OPAM package for %S not found." lib);
-      [lib, version0]
+      [lib, Version.none]
 
   (* Tells whether the two list of packages are equal.  Do not care
      about versions.  Assume the list are sorted as [of_findlib]
@@ -176,14 +174,16 @@ let output fh flags pkg =
   let deps = get_findlib_dependencies pkg in
   let deps, opt = List.partition (fun (_,_,c) -> eval_conditional flags c) deps in
 
+  (* Required dependencies. *)
   let pkgs = List.map (fun (l,v,_) -> (Opam.of_findlib l, v)) deps in
+  let pkgs = (["ocamlfind", Version.none], None) :: pkgs in
   let pkgs = make_unique
                ~cmp:(fun (p1,_) (p2, _) -> Opam.compare_pkgs p1 p2)
                ~merge:(fun (p, v1) (_, v2) -> (p, Version.satisfy_both v1 v2))
                pkgs in
   let b = Buffer.create 124 in
   let fmt = Format.formatter_of_buffer b in
-  Format.fprintf fmt "@[<11>depends: [ \"ocamlfind\"@ ";
+  Format.fprintf fmt "@[<11>depends: [ ";
   List.iter (output_packages fmt) pkgs;
   Format.fprintf fmt "]@]@.";
   Buffer.output_buffer fh b;
