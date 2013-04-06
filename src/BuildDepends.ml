@@ -158,35 +158,34 @@ let string_of_package pkg version =
   | None -> sprintf "%S" pkg
   | Some v -> sprintf "%S {%s}" pkg (Version.string_of_comparator v)
 
-let output_packages fh (pkgs, v) =
+let output_packages fmt (pkgs, v) =
   match pkgs with
   | [] -> ()
   | [pkg, _version] ->
-     output_string fh (string_of_package pkg v);
-     output_char fh ' '
+     Format.fprintf fmt "%s@ " (string_of_package pkg v)
   | _ ->
      (* When multiple packages provide a given ocamlfind library, do
         not choose, list them all as possible choices.  *)
-     output_char fh '(';
      let pkgs = List.map (fun (p,_) -> string_of_package p v) pkgs in
-     output_string fh (String.concat " | " pkgs);
-     output_string fh ") "
+     Format.fprintf fmt "(%s)@ " (String.concat " | " pkgs)
 
 let output fh flags pkg =
   let deps = get_findlib_dependencies pkg in
   let deps, opt = List.partition (fun (_,_,c) -> eval_conditional flags c) deps in
 
-  output_string fh "depends: [ \"ocamlfind\" ";
   let pkgs = List.map (fun (l,v,_) -> (Opam.of_findlib l, v)) deps in
   let pkgs = make_unique
                ~cmp:(fun (p1,_) (p2, _) -> Opam.compare_pkgs p1 p2)
                ~merge:(fun (p, v1) (_, v2) -> (p, Version.satisfy_both v1 v2))
                pkgs in
-  List.iter (output_packages fh) pkgs;
-  output_string fh "]\n";
+  let b = Buffer.create 124 in
+  let fmt = Format.formatter_of_buffer b in
+  Format.fprintf fmt "@[<11>depends: [ \"ocamlfind\"@ ";
+  List.iter (output_packages fmt) pkgs;
+  Format.fprintf fmt "]@]@.";
+  Buffer.output_buffer fh b;
   if opt <> [] then (
     (* Optional packages are a simple "or-formula".  Gather all packages. *)
-    output_string fh "depopts: [ ";
     let add_pkgs pkgs (l,v,_) =
       List.fold_left (fun pk (p,_) -> (p,v) :: pk) pkgs (Opam.of_findlib l) in
     let pkgs = List.fold_left add_pkgs [] opt in
@@ -194,10 +193,12 @@ let output fh flags pkg =
                  ~cmp:(fun (p1,_) (p2,_) -> String.compare p1 p2)
                  ~merge:(fun (p, v1) (_, v2) -> (p, Version.satisfy_both v1 v2))
                  pkgs in
-    List.iter (fun (p,v) -> output_string fh (string_of_package p v);
-                         output_char fh ' ';
+    Buffer.reset b;
+    Format.fprintf fmt "@[<11>depopts: [ ";
+    List.iter (fun (p,v) -> Format.fprintf fmt "%s@ " (string_of_package p v)
               ) pkgs;
-    output_string fh "]\n";
+    Format.fprintf fmt "]@.";
+    Buffer.output_buffer fh b;
   )
 
 
