@@ -14,7 +14,7 @@ issue
     oasis2opam <URL of your tarball>
 
 It will download the tarball into a temporary directory, extract the
-`_oasis` file and use it to produce a <package>.<version> directory.
+`_oasis` file and use it to produce a `<package>.<version>` directory.
 Along the way, `oasis2opam` may display suggestions so your OPAM
 package has richer metadata.
 
