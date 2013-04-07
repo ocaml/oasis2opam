@@ -155,16 +155,19 @@ let get_findlib_dependencies pkg =
   List.filter (fun (p,_,_) -> not(S.mem p findlib_with_ocaml)) deps
 
 (* Findlib Libraries produced by this package. *)
-let get_findlib_libraries pkg =
+let get_findlib_libraries flags pkg =
   let add_libs libs = function
-    | Library(cs,_,l) ->
-       (match l.lib_findlib_parent with
-        | None -> cs.cs_name
-        | Some parent -> parent
-       ) :: libs
+    | Library(cs,bs,l) ->
+       if eval_conditional flags bs.bs_install then (
+         (match l.lib_findlib_parent with
+          | None -> cs.cs_name
+          | Some parent -> parent
+         ) :: libs
+       )
+       else libs
     | _ -> libs in
-  (* The libraries are supposed to be unique. *)
-  List.fold_left add_libs [] pkg.sections
+  let libs = List.fold_left add_libs [] pkg.sections in
+  make_unique libs ~cmp:String.compare ~merge:(fun l1 l2 -> l1)
 
 
 (* Format OPAM output
@@ -216,7 +219,7 @@ let output fmt flags pkg =
   );
   (* Conflicts.  There are other packages (& version in case the
      conflict is removed) which provide the same library. *)
-  let libs = get_findlib_libraries pkg in
+  let libs = get_findlib_libraries flags pkg in
   let add_conflict c lib =
     let pkgs = Opam.of_findlib lib in
     let pkgs = List.filter (fun (p,_) -> p <> pkg.name) pkgs in

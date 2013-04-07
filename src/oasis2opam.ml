@@ -85,14 +85,14 @@ let output_tags fmt pkg =
     Format.fprintf fmt "tags: [%s]@\n" (String.concat " " tags)
   )
 
-let output_build_install fmt pkg =
+let output_build_install fmt flags pkg =
   Format.fprintf fmt "@[<2>build: [@\n\
                       [\"ocaml\" \"setup.ml\" \"-configure\" \
                          \"--prefix\" prefix]@\n\
                       [\"ocaml\" \"setup.ml\" \"-build\"]@\n\
                       [\"ocaml\" \"setup.ml\" \"-install\"]\
                       @]@\n]@\n";
-  let libs = BuildDepends.get_findlib_libraries pkg in
+  let libs = BuildDepends.get_findlib_libraries flags pkg in
   if libs <> [] then (
     Format.fprintf fmt "@[<2>remove: [";
     List.iter (fun l -> Format.fprintf fmt "@\n[\"ocamlfind\" \"remove\" %S]" l
@@ -113,7 +113,7 @@ let opam_opam flags pkg =
    | Some url -> Format.fprintf fmt "homepage: %S@\n" url
    | None -> warn "Consider setting \"Homepage:\" in your _oasis file");
   output_tags fmt pkg;
-  output_build_install fmt pkg;
+  output_build_install fmt flags pkg;
   if List.exists (function Doc _ -> true | _  -> false) pkg.sections then
     Format.fprintf fmt "build-doc: [ \"ocaml\" \"setup.ml\" \"-doc\" ]@\n";
   BuildDepends.output fmt flags pkg;
