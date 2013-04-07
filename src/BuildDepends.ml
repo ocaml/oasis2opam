@@ -93,20 +93,20 @@ module Opam = struct
 
   (* Return the OPAM package containing the findlib module.  See
      https://github.com/OCamlPro/opam/issues/573 *)
-  let of_findlib ?warn:(want_warn=false) lib =
-    try
-      let pkgs = M.find lib findlib in
-      match pkgs with
-      | [] | [_] -> pkgs
-      | _ ->
-         if want_warn then
-           warn(sprintf "%S provided by OPAM %s."
-                        lib (String.concat ", " (List.map to_string pkgs)));
-         pkgs
-    with Not_found ->
-      if want_warn then
-        error(sprintf "OPAM package for %S not found." lib);
-      []
+  let of_findlib lib =
+    try M.find lib findlib (* <> [] *) with Not_found -> []
+
+  let of_findlib_warn lib =
+    let pkgs = of_findlib lib in
+    match pkgs with
+    | [_] -> pkgs
+    | _ :: _ ->
+       warn(sprintf "%S provided by OPAM %s."
+                    lib (String.concat ", " (List.map to_string pkgs)));
+       pkgs
+    | [] ->
+       error(sprintf "OPAM package for %S not found." lib);
+       [lib, Version.none]
 
   (* Tells whether the two list of packages are equal.  Do not care
      about versions.  Assume the list are sorted as [of_findlib]
@@ -191,7 +191,7 @@ let output fh flags pkg =
   let deps, opt = List.partition (fun (_,_,c) -> eval_conditional flags c) deps in
 
   (* Required dependencies. *)
-  let pkgs = List.map (fun (l,v,_) -> (Opam.of_findlib ~warn:true l, v)) deps in
+  let pkgs = List.map (fun (l,v,_) -> (Opam.of_findlib_warn l, v)) deps in
   let pkgs = (["ocamlfind", Version.none], None) :: pkgs in
   let pkgs = make_unique
                ~cmp:(fun (p1,_) (p2, _) -> Opam.compare_pkgs p1 p2)
@@ -206,8 +206,7 @@ let output fh flags pkg =
   if opt <> [] then (
     (* Optional packages are a simple "or-formula".  Gather all packages. *)
     let add_pkgs pkgs (l,v,_) =
-      List.fold_left (fun pk (p,_) -> (p,v) :: pk) pkgs
-                     (Opam.of_findlib l ~warn:true) in
+      List.fold_left (fun pk (p,_) -> (p,v) :: pk) pkgs (Opam.of_findlib_warn l) in
     let pkgs = List.fold_left add_pkgs [] opt in
     let pkgs = make_unique
                  ~cmp:(fun (p1,_) (p2,_) -> String.compare p1 p2)
