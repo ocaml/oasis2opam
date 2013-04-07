@@ -155,6 +155,7 @@ let get_findlib_dependencies flags pkg =
   let deps = merge_findlib_depends deps in
   (* Filter out the packages coming with OCaml *)
   let deps = List.filter (fun (p,_,_) -> not(S.mem p findlib_with_ocaml)) deps in
+  (* Only keep only installed packages. *)
   let deps, opt = List.partition (fun (_,_,c) -> eval_conditional flags c) deps in
   deps, opt
 
