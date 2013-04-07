@@ -148,12 +148,15 @@ let merge_findlib_depends =
                     ~merge
                     d
 
-(* Findlib libraries on which pkg depends. *)
-let get_findlib_dependencies pkg =
+(* Findlib libraries on which pkg depends.  Sort them as compulsory
+   and optional. *)
+let get_findlib_dependencies flags pkg =
   let deps = List.fold_left findlib_of_section [] pkg.sections in
   let deps = merge_findlib_depends deps in
   (* Filter out the packages coming with OCaml *)
-  List.filter (fun (p,_,_) -> not(S.mem p findlib_with_ocaml)) deps
+  let deps = List.filter (fun (p,_,_) -> not(S.mem p findlib_with_ocaml)) deps in
+  let deps, opt = List.partition (fun (_,_,c) -> eval_conditional flags c) deps in
+  deps, opt
 
 (* Findlib Libraries produced by this package. *)
 let get_findlib_libraries flags pkg =
@@ -191,8 +194,7 @@ let output_packages fmt (pkgs, v) =
      Format.fprintf fmt "(%s)@ " (String.concat " | " pkgs)
 
 let output fmt flags pkg =
-  let deps = get_findlib_dependencies pkg in
-  let deps, opt = List.partition (fun (_,_,c) -> eval_conditional flags c) deps in
+  let deps, opt = get_findlib_dependencies flags pkg in
 
   (* Required dependencies. *)
   let pkgs = List.map (fun (l,v,_) -> (Opam.of_findlib_warn l, v)) deps in
