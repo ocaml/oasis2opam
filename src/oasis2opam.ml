@@ -91,17 +91,9 @@ let output_build_install fh pkg =
                       [\"ocaml\" \"setup.ml\" \"-build\"]\n  \
                       [\"ocaml\" \"setup.ml\" \"-install\"]\n\
                     ]\n";
-  let add_libs libs = function
-    | Library(cs,_,l) ->
-       (match l.lib_findlib_parent with
-        | None -> cs.cs_name
-        | Some parent -> parent
-       ) :: libs
-    | _ -> libs in
-  let libs = List.fold_left add_libs [] pkg.sections in
+  let libs = BuildDepends.get_findlib_libraries pkg in
   if libs <> [] then (
     output_string fh "remove: [\n";
-    let libs = make_unique libs ~cmp:String.compare ~merge:(fun l1 l2 -> l1) in
     List.iter (fun l -> fprintf fh "  [\"ocamlfind\" \"remove\" %S]\n" l) libs;
     output_string fh "]\n"
   )

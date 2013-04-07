@@ -93,18 +93,20 @@ module Opam = struct
 
   (* Return the OPAM package containing the findlib module.  See
      https://github.com/OCamlPro/opam/issues/573 *)
-  let of_findlib lib =
+  let of_findlib ?warn:(want_warn=false) lib =
     try
       let pkgs = M.find lib findlib in
       match pkgs with
       | [] | [_] -> pkgs
       | _ ->
-         warn(sprintf "%S provided by OPAM %s."
-                      lib (String.concat ", " (List.map to_string pkgs)));
+         if want_warn then
+           warn(sprintf "%S provided by OPAM %s."
+                        lib (String.concat ", " (List.map to_string pkgs)));
          pkgs
     with Not_found ->
-      error(sprintf "OPAM package for %S not found." lib);
-      [lib, Version.none]
+      if want_warn then
+        error(sprintf "OPAM package for %S not found." lib);
+      []
 
   (* Tells whether the two list of packages are equal.  Do not care
      about versions.  Assume the list are sorted as [of_findlib]
@@ -145,11 +147,24 @@ let merge_findlib_depends =
                     ~merge
                     d
 
+(* Findlib libraries on which pkg depends. *)
 let get_findlib_dependencies pkg =
   let deps = List.fold_left findlib_of_section [] pkg.sections in
   let deps = merge_findlib_depends deps in
   (* Filter out the packages coming with OCaml *)
   List.filter (fun (p,_,_) -> not(S.mem p findlib_with_ocaml)) deps
+
+(* Findlib Libraries produced by this package. *)
+let get_findlib_libraries pkg =
+  let add_libs libs = function
+    | Library(cs,_,l) ->
+       (match l.lib_findlib_parent with
+        | None -> cs.cs_name
+        | Some parent -> parent
+       ) :: libs
+    | _ -> libs in
+  (* The libraries are supposed to be unique. *)
+  List.fold_left add_libs [] pkg.sections
 
 
 (* Format OPAM output
@@ -176,7 +191,7 @@ let output fh flags pkg =
   let deps, opt = List.partition (fun (_,_,c) -> eval_conditional flags c) deps in
 
   (* Required dependencies. *)
-  let pkgs = List.map (fun (l,v,_) -> (Opam.of_findlib l, v)) deps in
+  let pkgs = List.map (fun (l,v,_) -> (Opam.of_findlib ~warn:true l, v)) deps in
   let pkgs = (["ocamlfind", Version.none], None) :: pkgs in
   let pkgs = make_unique
                ~cmp:(fun (p1,_) (p2, _) -> Opam.compare_pkgs p1 p2)
@@ -191,7 +206,8 @@ let output fh flags pkg =
   if opt <> [] then (
     (* Optional packages are a simple "or-formula".  Gather all packages. *)
     let add_pkgs pkgs (l,v,_) =
-      List.fold_left (fun pk (p,_) -> (p,v) :: pk) pkgs (Opam.of_findlib l) in
+      List.fold_left (fun pk (p,_) -> (p,v) :: pk) pkgs
+                     (Opam.of_findlib l ~warn:true) in
     let pkgs = List.fold_left add_pkgs [] opt in
     let pkgs = make_unique
                  ~cmp:(fun (p1,_) (p2,_) -> String.compare p1 p2)
@@ -203,8 +219,31 @@ let output fh flags pkg =
               ) pkgs;
     Format.fprintf fmt "]@.";
     Buffer.output_buffer fh b;
+  );
+  (* Conflicts.  There are other packages (& version in case the
+     conflict is removed) which provide the same library. *)
+  let libs = get_findlib_libraries pkg in
+  let add_conflict c lib =
+    let pkgs = Opam.of_findlib lib in
+    let pkgs = List.filter (fun (p,_) -> p <> pkg.name) pkgs in
+    if pkgs <> [] then pkgs @ c
+    else c in
+  let conflicts = List.fold_left add_conflict [] libs in
+  if conflicts <> [] then (
+    (* FIXME: one *must* care about versions. *)
+    let conflicts = make_unique ~cmp:(fun (p1,_) (p2,_) -> String.compare p1 p2)
+                                ~merge:(fun p1 p2 -> p1)
+                                conflicts in
+    Buffer.reset b;
+    Format.fprintf fmt "@[<13>conflicts: [ ";
+    List.iter (fun (p,v) ->
+               Format.fprintf fmt "%S {= %S}@ "
+                              p (OASISVersion.string_of_version v)
+              ) conflicts;
+    Format.fprintf fmt "]@.";
+    Buffer.output_buffer fh b;
   )
-
+;;
 
 (* Output findlib libraries provided by several OPAM packages. *)
 let output_duplicates fh =
