@@ -186,7 +186,7 @@ let output_packages fmt (pkgs, v) =
      let pkgs = List.map (fun (p,_) -> string_of_package p v) pkgs in
      Format.fprintf fmt "(%s)@ " (String.concat " | " pkgs)
 
-let output fh flags pkg =
+let output fmt flags pkg =
   let deps = get_findlib_dependencies pkg in
   let deps, opt = List.partition (fun (_,_,c) -> eval_conditional flags c) deps in
 
@@ -197,12 +197,9 @@ let output fh flags pkg =
                ~cmp:(fun (p1,_) (p2, _) -> Opam.compare_pkgs p1 p2)
                ~merge:(fun (p, v1) (_, v2) -> (p, Version.satisfy_both v1 v2))
                pkgs in
-  let b = Buffer.create 124 in
-  let fmt = Format.formatter_of_buffer b in
   Format.fprintf fmt "@[<11>depends: [ ";
   List.iter (output_packages fmt) pkgs;
   Format.fprintf fmt "]@]@.";
-  Buffer.output_buffer fh b;
   if opt <> [] then (
     (* Optional packages are a simple "or-formula".  Gather all packages. *)
     let add_pkgs pkgs (l,v,_) =
@@ -212,12 +209,10 @@ let output fh flags pkg =
                  ~cmp:(fun (p1,_) (p2,_) -> String.compare p1 p2)
                  ~merge:(fun (p, v1) (_, v2) -> (p, Version.satisfy_both v1 v2))
                  pkgs in
-    Buffer.reset b;
     Format.fprintf fmt "@[<11>depopts: [ ";
     List.iter (fun (p,v) -> Format.fprintf fmt "%s@ " (string_of_package p v)
               ) pkgs;
     Format.fprintf fmt "]@.";
-    Buffer.output_buffer fh b;
   );
   (* Conflicts.  There are other packages (& version in case the
      conflict is removed) which provide the same library. *)
@@ -233,14 +228,12 @@ let output fh flags pkg =
     let conflicts = make_unique ~cmp:(fun (p1,_) (p2,_) -> String.compare p1 p2)
                                 ~merge:(fun p1 p2 -> p1)
                                 conflicts in
-    Buffer.reset b;
     Format.fprintf fmt "@[<13>conflicts: [ ";
     List.iter (fun (p,v) ->
                Format.fprintf fmt "%S {= %S}@ "
                               p (OASISVersion.string_of_version v)
               ) conflicts;
     Format.fprintf fmt "]@.";
-    Buffer.output_buffer fh b;
   )
 ;;
 

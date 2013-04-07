@@ -53,71 +53,75 @@ let rec get_first_email = function
          Some(Str.matched_string name)
      with Not_found -> get_first_email tl
 
-let output_maintainer fh pkg =
+let output_maintainer fmt pkg =
   if pkg.maintainers = [] then
     warn "Consider setting \"Maintainers:\" in your _oasis file.";
   match get_first_email pkg.maintainers with
-  | Some e -> fprintf fh "maintainer: %S\n" e
+  | Some e -> Format.fprintf fmt "maintainer: %S@\n" e
   | None ->
      match get_first_email pkg.authors with
-     | Some e -> fprintf fh "maintainer: %S\n" e
+     | Some e -> Format.fprintf fmt "maintainer: %S@\n" e
      | None ->
         error "Give an email in oasis \"Maintainers:\" or \
                \"Authors:\" fields (preferably the former).";
-        fprintf fh "maintainer: \"opam-devel@lists.ocaml.org\"\n"
+        Format.fprintf fmt "maintainer: \"opam-devel@@lists.ocaml.org\"@\n"
 
-let output_authors fh pkg =
+let output_authors fmt pkg =
   match pkg.authors with
   | [] -> fatal_error "You must set \"Authors:\" in your _oasis file.";
-  | [a] -> fprintf fh "authors: [ \"%s\" ]\n" (Utils.escaped a)
+  | [a] -> Format.fprintf fmt "authors: [ \"%s\" ]@\n" (Utils.escaped a)
   | a :: tl ->
-     fprintf fh "authors: [ \"%s\"" (Utils.escaped a);
-     List.iter (fun a -> fprintf fh "\n           \"%s\"" (Utils.escaped a)) tl;
-     fprintf fh " ]\n"
+     Format.fprintf fmt "@[<11>authors: [ \"%s\"" (Utils.escaped a);
+     List.iter (fun a -> Format.fprintf fmt "@\n\"%s\"" (Utils.escaped a)) tl;
+     Format.fprintf fmt " ]@]@\n"
 
-let output_tags fh pkg =
+let output_tags fmt pkg =
   if pkg.categories <> [] then (
     let tag cat =
       (* FIXME: how do we generate tags from categories? *)
       let t = Filename.basename cat in
       "\"" ^ String.escaped t ^ "\"" in
-    fprintf fh "tags: [%s]\n" (String.concat " " (List.map tag pkg.categories))
+    let tags = List.map tag pkg.categories in
+    Format.fprintf fmt "tags: [%s]@\n" (String.concat " " tags)
   )
 
-let output_build_install fh pkg =
-  output_string fh "build: [\n  \
+let output_build_install fmt pkg =
+  Format.fprintf fmt "@[<2>build: [@\n\
                       [\"ocaml\" \"setup.ml\" \"-configure\" \
-                        \"--prefix\" prefix]\n  \
-                      [\"ocaml\" \"setup.ml\" \"-build\"]\n  \
-                      [\"ocaml\" \"setup.ml\" \"-install\"]\n\
-                    ]\n";
+                         \"--prefix\" prefix]@\n\
+                      [\"ocaml\" \"setup.ml\" \"-build\"]@\n\
+                      [\"ocaml\" \"setup.ml\" \"-install\"]\
+                      @]@\n]@\n";
   let libs = BuildDepends.get_findlib_libraries pkg in
   if libs <> [] then (
-    output_string fh "remove: [\n";
-    List.iter (fun l -> fprintf fh "  [\"ocamlfind\" \"remove\" %S]\n" l) libs;
-    output_string fh "]\n"
+    Format.fprintf fmt "@[<2>remove: [";
+    List.iter (fun l -> Format.fprintf fmt "@\n[\"ocamlfind\" \"remove\" %S]" l
+              ) libs;
+    Format.fprintf fmt "@]@\n]@\n"
   )
 
 
 let opam_opam flags pkg =
   let fh = open_out(Filename.concat (opam_dir pkg) "opam") in
-  output_string fh "opam-version: \"1\"\n";
+  let fmt = Format.formatter_of_out_channel fh in
+  Format.fprintf fmt "opam-version: \"1\"@\n";
   (* "name:" and "version:" deemed unnecessary. *)
-  output_maintainer fh pkg;
-  output_authors fh pkg;
-  fprintf fh "license: %S\n" (OASISLicense.to_string pkg.license);
+  output_maintainer fmt pkg;
+  output_authors fmt pkg;
+  Format.fprintf fmt "license: %S@\n" (OASISLicense.to_string pkg.license);
   (match pkg.homepage with
-   | Some url -> fprintf fh "homepage: %S\n" url
+   | Some url -> Format.fprintf fmt "homepage: %S@\n" url
    | None -> warn "Consider setting \"Homepage:\" in your _oasis file");
-  output_tags fh pkg;
-  output_build_install fh pkg;
+  output_tags fmt pkg;
+  output_build_install fmt pkg;
   if List.exists (function Doc _ -> true | _  -> false) pkg.sections then
-    output_string fh "build-doc: [ \"ocaml\" \"setup.ml\" \"-doc\" ]\n";
-  BuildDepends.output fh flags pkg;
+    Format.fprintf fmt "build-doc: [ \"ocaml\" \"setup.ml\" \"-doc\" ]@\n";
+  BuildDepends.output fmt flags pkg;
   (match pkg.ocaml_version with
-   | Some v -> fprintf fh "ocaml-version: [ %s ]\n"
-                      (Version.string_of_comparator v)
+   | Some v -> Format.fprintf fmt "ocaml-version: [ %s ]@\n"
+                             (Version.string_of_comparator v)
    | None -> ());
+  Format.pp_print_flush fmt ();
   close_out fh
 
 
