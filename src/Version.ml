@@ -24,6 +24,23 @@
 
 open OASISVersion
 
+  let to_string (p, v) =
+    p ^ " (" ^ OASISVersion.string_of_version v ^ ")"
+
+
+module Ordered = struct
+  type t = OASISVersion.t
+  let compare = OASISVersion.version_compare
+end
+
+module Set = struct
+  include Set.Make(Ordered)
+
+  let to_string s =
+    let l = fold (fun e l -> string_of_version e :: l) s [] in
+    String.concat ", " l
+end
+
 (* OASISVersion.string_of_comparator is unfortunately not good because
    OPAM requires the versions be between quotes. *)
 let rec string_of_comparator = function
@@ -46,9 +63,3 @@ let satisfy_both v1 v2 =
   | Some _, None -> v1
   | None, Some _ -> v2
   | Some v1, Some v2 -> Some(comparator_reduce (VAnd(v1, v2)))
-
-let max v1 v2 =
-  if OASISVersion.version_compare v1 v2 <= 0 then v2 else v1
-
-let none = OASISVersion.version_of_string ""
-

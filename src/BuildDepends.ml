@@ -50,6 +50,7 @@ module Opam = struct
   let findlib_re =
     Str.regexp "\"ocamlfind\" +\"remove\" +\"\\([a-zA-Z0-9_.-]+\\)\""
 
+  (* Scan the content of [s] and add to [m] all Findlib libraries found. *)
   let rec add_all_findlib m opam s ofs =
     try
       ignore(Str.search_forward findlib_re s ofs);
@@ -61,10 +62,10 @@ module Opam = struct
       add_all_findlib m opam s ofs
     with Not_found -> ()
 
-  (* Keep only the larger version for each package. *)
+  (* Keep the set of versions for each package. *)
   let merge_versions pkgs =
     make_unique ~cmp:(fun (p1,_) (p2,_) -> String.compare p1 p2)
-                ~merge:(fun (p, v1) (_, v2) -> (p, Version.max v1 v2))
+                ~merge:(fun (p, v1) (_, v2) -> (p, Version.Set.union v1 v2))
                 pkgs
 
   (* FIXME: we may want to track versions and add a constraint ">="
@@ -73,7 +74,7 @@ module Opam = struct
     (* FIXME: Cache result? *)
     let m = ref M.empty in
     let dir = Filename.concat root "opam" in
-    let pkg_ver = Sys.readdir dir in
+    let all_pkg_ver = Sys.readdir dir in
     let add pkg_ver =
       if Str.string_match pkg_re pkg_ver 0 then (
         let opam = Str.matched_group 1 pkg_ver in
@@ -82,19 +83,19 @@ module Opam = struct
 
         let s = read_whole_file (Filename.concat dir pkg_ver) in
         let s = Str.global_replace space_re " " s in
-        add_all_findlib m (opam, version) s 0;
+        add_all_findlib m (opam, Version.Set.singleton version) s 0;
       ) in
-    Array.iter add pkg_ver;
-    m := M.add "findlib" [("ocamlfind", Version.none)] !m;
+    Array.iter add all_pkg_ver;
+    m := M.add "findlib" [("ocamlfind", Version.Set.empty)] !m;
     M.map (fun pkgs -> merge_versions pkgs) !m
-
-  let to_string (p, v) =
-    p ^ " (" ^ OASISVersion.string_of_version v ^ ")"
 
   (* Return the OPAM package containing the findlib module.  See
      https://github.com/OCamlPro/opam/issues/573 *)
   let of_findlib lib =
     try M.find lib findlib (* <> [] *) with Not_found -> []
+
+  let to_string (p, v) =
+    p ^ " (" ^ Version.Set.to_string v ^ ")"
 
   let of_findlib_warn lib =
     let pkgs = of_findlib lib in
@@ -106,7 +107,7 @@ module Opam = struct
        pkgs
     | [] ->
        error(sprintf "OPAM package for %S not found." lib);
-       [lib, Version.none]
+       [lib, Version.Set.empty]
 
   (* Tells whether the two list of packages are equal.  Do not care
      about versions.  Assume the list are sorted as [of_findlib]
@@ -195,7 +196,7 @@ let output fmt flags pkg =
 
   (* Required dependencies. *)
   let pkgs = List.map (fun (l,v,_) -> (Opam.of_findlib_warn l, v)) deps in
-  let pkgs = (["ocamlfind", Version.none], None) :: pkgs in
+  let pkgs = (["ocamlfind", Version.Set.empty], None) :: pkgs in
   let pkgs = make_unique
                ~cmp:(fun (p1,_) (p2, _) -> Opam.compare_pkgs p1 p2)
                ~merge:(fun (p, v1) (_, v2) -> (p, Version.satisfy_both v1 v2))
@@ -232,9 +233,11 @@ let output fmt flags pkg =
                                 ~merge:(fun p1 p2 -> p1)
                                 conflicts in
     Format.fprintf fmt "@[<13>conflicts: [ ";
-    List.iter (fun (p,v) ->
-               Format.fprintf fmt "%S {= %S}@ "
-                              p (OASISVersion.string_of_version v)
+    List.iter (fun (p,v_set) ->
+               let conflict_version v =
+                 Format.fprintf fmt "%S {= %S}@ "
+                                p (OASISVersion.string_of_version v) in
+               Version.Set.iter conflict_version v_set;
               ) conflicts;
     Format.fprintf fmt "]@.";
   )
