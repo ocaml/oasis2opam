@@ -221,7 +221,7 @@ let output fmt flags pkg =
 
   (* Required dependencies. *)
   let pkgs = List.map (fun (l,v,_) -> (Opam.of_findlib_warn l, v)) deps in
-  let pkgs = (["ocamlfind", Version.Set.empty], None) :: pkgs in
+  let pkgs = (["ocamlfind", Version.Set.empty], pkg.findlib_version) :: pkgs in
   let pkgs = make_unique
                ~cmp:(fun (p1,_) (p2, _) -> Opam.compare_pkgs p1 p2)
                ~merge:(fun (p, v1) (_, v2) -> (p, Version.satisfy_both v1 v2))
