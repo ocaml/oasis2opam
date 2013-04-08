@@ -256,10 +256,10 @@ let output fmt flags pkg =
     else c in
   let conflicts = List.fold_left add_conflict [] libs in
   if conflicts <> [] then (
-    (* FIXME: one *must* care about versions. *)
-    let conflicts = make_unique ~cmp:(fun (p1,_) (p2,_) -> String.compare p1 p2)
-                                ~merge:(fun p1 p2 -> p1)
-                                conflicts in
+    let conflicts =
+      make_unique ~cmp:(fun (p1,_) (p2,_) -> String.compare p1 p2)
+                  ~merge:(fun (p1,v1) (p2,v2) -> (p1, Version.Set.union v1 v2))
+                  conflicts in
     Format.fprintf fmt "@[<2>conflicts: [";
     List.iter (fun (p,v_set) ->
                let conflict_version v =
