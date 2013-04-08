@@ -160,12 +160,17 @@ let add_depends_of_build d cond deps =
 let findlib_of_section deps = function
   | Library(_, bs, _)
   | Executable(_, bs, _) ->
-     add_depends_of_build bs.bs_build_depends bs.bs_build deps
+     (* A dep. is compulsory of the lib/exec is built & installed *)
+     let cond flags = eval_conditional flags bs.bs_build
+                      &&  eval_conditional flags bs.bs_install in
+     add_depends_of_build bs.bs_build_depends cond deps
   | _ -> deps
 
 let merge_findlib_depends =
   let merge (p1, v1, c1) (p2, v2, c2) =
-    (p1, Version.satisfy_both v1 v2, c1 @ c2) in
+    (* A dep. is compulsory as soon as any occurrence of it is. *)
+    let cond flags = c1 flags || c2 flags in
+    (p1, Version.satisfy_both v1 v2, cond) in
   fun d -> make_unique ~cmp:(fun (p1,_,_) (p2,_,_) -> String.compare p1 p2)
                     ~merge
                     d
@@ -178,7 +183,7 @@ let get_findlib_dependencies flags pkg =
   (* Filter out the packages coming with OCaml *)
   let deps = List.filter (fun (p,_,_) -> not(S.mem p findlib_with_ocaml)) deps in
   (* Only keep only installed packages. *)
-  let deps, opt = List.partition (fun (_,_,c) -> eval_conditional flags c) deps in
+  let deps, opt = List.partition (fun (_,_,c) -> c flags) deps in
   deps, opt
 
 (* Findlib Libraries produced by this package. *)
