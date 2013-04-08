@@ -41,5 +41,8 @@ let git_hash() =
 
 let _ = BaseEnv.var_define "git_hash" git_hash
 
+let _ = BaseEnv.var_define "compilation_time"
+                           (fun () -> string_of_float(Unix.gettimeofday ()))
+
 
 let () = setup ();;

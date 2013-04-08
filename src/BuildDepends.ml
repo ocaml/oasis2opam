@@ -68,26 +68,48 @@ module Opam = struct
                 ~merge:(fun (p, v1) (_, v2) -> (p, Version.Set.union v1 v2))
                 pkgs
 
-  (* FIXME: we may want to track versions and add a constraint ">="
-     when a findlib package is provided only be later OPAM versions. *)
   let findlib =
-    (* FIXME: Cache result? *)
-    let m = ref M.empty in
-    let dir = Filename.concat root "opam" in
-    let all_pkg_ver = Sys.readdir dir in
-    let add pkg_ver =
-      if Str.string_match pkg_re pkg_ver 0 then (
-        let opam = Str.matched_group 1 pkg_ver in
-        let version = Str.matched_group 2 pkg_ver in
-        let version = OASISVersion.version_of_string version in
+    (* Cache the result.  We know we are not up to date if
+       "state.cache" is newer than us. *)
+    let cache = Filename.concat root "oasis2opam.cache" in
+    let m_cache = try (Unix.stat cache).Unix.st_mtime
+                  with Unix.Unix_error(Unix.ENOENT,_,_) -> neg_infinity in
+    let state = Filename.concat root "state.cache" in
+    let m_state = try (Unix.stat state).Unix.st_mtime
+                  with Unix.Unix_error(Unix.ENOENT,_,_) -> infinity in
+    (* FIXME: when oasis2opam upgrades, the cache must bu updated (the
+       type may change). *)
+    if m_cache < Conf.compilation_time || m_cache < m_state then (
+      (* Need to browse the opam dir again. *)
+      let m = ref M.empty in
+      let dir = Filename.concat root "opam" in
+      let all_pkg_ver = Sys.readdir dir in
+      let add pkg_ver =
+        if Str.string_match pkg_re pkg_ver 0 then (
+          let opam = Str.matched_group 1 pkg_ver in
+          let version = Str.matched_group 2 pkg_ver in
+          let version = OASISVersion.version_of_string version in
 
-        let s = read_whole_file (Filename.concat dir pkg_ver) in
-        let s = Str.global_replace space_re " " s in
-        add_all_findlib m (opam, Version.Set.singleton version) s 0;
-      ) in
-    Array.iter add all_pkg_ver;
-    m := M.add "findlib" [("ocamlfind", Version.Set.empty)] !m;
-    M.map (fun pkgs -> merge_versions pkgs) !m
+          let s = read_whole_file (Filename.concat dir pkg_ver) in
+          let s = Str.global_replace space_re " " s in
+          add_all_findlib m (opam, Version.Set.singleton version) s 0;
+        ) in
+      Array.iter add all_pkg_ver;
+      m := M.add "findlib" [("ocamlfind", Version.Set.empty)] !m;
+      let m = M.map (fun pkgs -> merge_versions pkgs) !m in
+      (* Cache *)
+      let fh = open_out_bin cache in
+      output_value fh m;
+      close_out fh;
+      m
+    )
+    else (
+      (* Use the cache. *)
+      let fh = open_in_bin cache in
+      let m = input_value fh in
+      close_in fh;
+      m (* will ge given a type by unification with the "then" clause. *)
+    )
 
   (* Return the OPAM package containing the findlib module.  See
      https://github.com/OCamlPro/opam/issues/573 *)
