@@ -205,21 +205,20 @@ let get_findlib_libraries flags pkg =
 (* Format OPAM output
  ***********************************************************************)
 
-let string_of_package pkg version =
+let string_of_package (pkg, version) =
   match version with
   | None -> sprintf "%S" pkg
   | Some v -> sprintf "%S {%s}" pkg (Version.string_of_comparator v)
 
-let output_packages fmt (pkgs, v) =
+let string_of_packages (pkgs, v) =
   match pkgs with
-  | [] -> ()
-  | [pkg, _version] ->
-     Format.fprintf fmt "%s@ " (string_of_package pkg v)
+  | [] -> ""
+  | [pkg, _version] -> string_of_package (pkg, v)
   | _ ->
      (* When multiple packages provide a given ocamlfind library, do
         not choose, list them all as possible choices.  *)
-     let pkgs = List.map (fun (p,_) -> string_of_package p v) pkgs in
-     Format.fprintf fmt "(%s)@ " (String.concat " | " pkgs)
+     let pkgs = List.map (fun (p,_) -> string_of_package (p,v)) pkgs in
+     "(" ^ (String.concat " | " pkgs) ^ ")"
 
 let output fmt flags pkg =
   let deps, opt = get_findlib_dependencies flags pkg in
@@ -231,9 +230,9 @@ let output fmt flags pkg =
                ~cmp:(fun (p1,_) (p2, _) -> Opam.compare_pkgs p1 p2)
                ~merge:(fun (p, v1) (_, v2) -> (p, Version.satisfy_both v1 v2))
                pkgs in
-  Format.fprintf fmt "@[<11>depends: [ ";
-  List.iter (output_packages fmt) pkgs;
-  Format.fprintf fmt "]@]@.";
+  Format.fprintf fmt "@[<2>depends: [";
+  List.iter (fun p -> Format.fprintf fmt "@\n%s" (string_of_packages p)) pkgs;
+  Format.fprintf fmt "@]@\n]@\n";
   if opt <> [] then (
     (* Optional packages are a simple "or-formula".  Gather all packages. *)
     let add_pkgs pkgs (l,v,_) =
@@ -243,10 +242,9 @@ let output fmt flags pkg =
                  ~cmp:(fun (p1,_) (p2,_) -> String.compare p1 p2)
                  ~merge:(fun (p, v1) (_, v2) -> (p, Version.satisfy_both v1 v2))
                  pkgs in
-    Format.fprintf fmt "@[<11>depopts: [ ";
-    List.iter (fun (p,v) -> Format.fprintf fmt "%s@ " (string_of_package p v)
-              ) pkgs;
-    Format.fprintf fmt "]@.";
+    Format.fprintf fmt "@[<2>depopts: [";
+    List.iter (fun p -> Format.fprintf fmt "@\n%s" (string_of_package p)) pkgs;
+    Format.fprintf fmt "@]@\n]@\n";
   );
   (* Conflicts.  There are other packages (& version in case the
      conflict is removed) which provide the same library. *)
@@ -262,14 +260,14 @@ let output fmt flags pkg =
     let conflicts = make_unique ~cmp:(fun (p1,_) (p2,_) -> String.compare p1 p2)
                                 ~merge:(fun p1 p2 -> p1)
                                 conflicts in
-    Format.fprintf fmt "@[<13>conflicts: [ ";
+    Format.fprintf fmt "@[<2>conflicts: [";
     List.iter (fun (p,v_set) ->
                let conflict_version v =
-                 Format.fprintf fmt "%S {= %S}@ "
+                 Format.fprintf fmt "@\n%S {= %S}"
                                 p (OASISVersion.string_of_version v) in
                Version.Set.iter conflict_version v_set;
               ) conflicts;
-    Format.fprintf fmt "]@.";
+    Format.fprintf fmt "@]@\n]@\n";
   )
 ;;
 
