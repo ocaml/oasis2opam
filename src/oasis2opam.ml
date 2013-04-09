@@ -75,22 +75,45 @@ let output_authors fmt pkg =
      List.iter (fun a -> Format.fprintf fmt "@\n\"%s\"" (Utils.escaped a)) tl;
      Format.fprintf fmt " ]@]@\n"
 
+let clib_re = Str.regexp "-l\\([a-zA-Z0-9]+\\)"
+
+let get_potential_clibs pkg =
+  let add_libs libs = function
+    | Library(_,bs,_)
+    (* | Object(_,bs,_) *)
+    | Executable(_,bs,_) ->
+       (* Get all potential C libs, independently of the flags *)
+       let args = List.flatten (List.map snd bs.bs_cclib) in
+       let add_lib libs arg =
+         if Str.string_match clib_re arg 0 then
+           Str.matched_group 1 arg :: libs
+         else libs in
+       List.fold_left add_lib libs args
+    | Flag _ | SrcRepo _ | Test _ | Doc _ -> libs in
+  let libs = List.fold_left add_libs [] pkg.sections in
+  make_unique ~cmp:String.compare ~merge:(fun l1 l2 -> l1) libs
+
+
 let output_tags fmt pkg =
-  if pkg.categories <> [] then (
-    let tag cat =
-      (* FIXME: how do we generate tags from categories? *)
-      let t = Filename.basename cat in
-      "\"" ^ String.escaped t ^ "\"" in
-    let tags = List.map tag pkg.categories in
-    Format.fprintf fmt "tags: [ @[%s";
-    List.iter (fun t -> Format.fprintf fmt "%s@ " t) tags;
+  let tag cat =
+    (* FIXME: how do we generate tags from categories? *)
+    Filename.basename cat in
+  let tags = List.map tag pkg.categories in
+  (* Add "clib:<lib>" to tags for each C library detected.  This
+     serves as an indication that these libraries may need to be
+     installed first. *)
+  let libs = get_potential_clibs pkg in
+  let tags = List.fold_left (fun t l -> ("clib:" ^ l) :: t) tags libs in
+  if tags <> [] then (
+    Format.fprintf fmt "tags: [ @[";
+    List.iter (fun t -> Format.fprintf fmt "\"%s\"@ " (Utils.escaped t)) tags;
     Format.fprintf fmt "@] ]@\n";
   )
 
 let output_build_install fmt flags pkg =
   Format.fprintf fmt "@[<2>build: [@\n\
                       [\"ocaml\" \"setup.ml\" \"-configure\" \
-                         \"--prefix\" prefix]@\n\
+                      \"--prefix\" prefix]@\n\
                       [\"ocaml\" \"setup.ml\" \"-build\"]@\n\
                       [\"ocaml\" \"setup.ml\" \"-install\"]\
                       @]@\n]@\n";
