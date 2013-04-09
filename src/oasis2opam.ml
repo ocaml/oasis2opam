@@ -82,7 +82,9 @@ let output_tags fmt pkg =
       let t = Filename.basename cat in
       "\"" ^ String.escaped t ^ "\"" in
     let tags = List.map tag pkg.categories in
-    Format.fprintf fmt "tags: [%s]@\n" (String.concat " " tags)
+    Format.fprintf fmt "tags: [ @[%s";
+    List.iter (fun t -> Format.fprintf fmt "%s@ " t) tags;
+    Format.fprintf fmt "@] ]@\n";
   )
 
 let output_build_install fmt flags pkg =
