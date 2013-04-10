@@ -207,9 +207,15 @@ let get_findlib_libraries flags pkg =
     | Library(cs,bs,l) ->
        if eval_conditional flags bs.bs_install then (
          (match l.lib_findlib_parent with
-          | None -> cs.cs_name
-          | Some parent -> parent
-         ) :: libs
+          | Some parent ->
+             (* This may point to the *internal name* (to oasis) of
+                the Findlib library.  The parent is must already be
+                present, so do nothing. *)
+             libs
+          | None -> (match l.lib_findlib_name with
+                    | Some name -> name :: libs
+                    | None -> cs.cs_name :: libs)
+         )
        )
        else libs
     | _ -> libs in
