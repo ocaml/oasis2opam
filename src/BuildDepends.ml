@@ -68,7 +68,7 @@ module Opam = struct
                 ~merge:(fun (p, v1) (_, v2) -> (p, Version.Set.union v1 v2))
                 pkgs
 
-  let findlib =
+  let findlib, packages =
     (* Cache the result.  We know we are not up to date if
        "state.cache" is newer than us. *)
     let cache = Filename.concat root "oasis2opam.cache" in
@@ -82,6 +82,7 @@ module Opam = struct
     if m_cache < Conf.compilation_time || m_cache < m_state then (
       (* Need to browse the opam dir again. *)
       let m = ref M.empty in
+      let pkgs = ref M.empty in
       let dir = Filename.concat root "opam" in
       let all_pkg_ver = Sys.readdir dir in
       let add pkg_ver =
@@ -93,22 +94,28 @@ module Opam = struct
           let s = read_whole_file (Filename.concat dir pkg_ver) in
           let s = Str.global_replace space_re " " s in
           add_all_findlib m (opam, Version.Set.singleton version) s 0;
+          (* We also want to keep a correspondence of OPAM packages →
+             versions (even those with no findlib detectable lib) *)
+          let v_set = try Version.Set.add version (M.find opam !pkgs)
+                      with Not_found -> Version.Set.singleton version in
+          pkgs := M.add opam v_set !pkgs;
         ) in
       Array.iter add all_pkg_ver;
       m := M.add "findlib" [("ocamlfind", Version.Set.empty)] !m;
       let m = M.map (fun pkgs -> merge_versions pkgs) !m in
       (* Cache *)
+      let to_cache = (m, !pkgs) in
       let fh = open_out_bin cache in
-      output_value fh m;
+      output_value fh to_cache;
       close_out fh;
-      m
+      to_cache
     )
     else (
       (* Use the cache. *)
       let fh = open_in_bin cache in
-      let m = input_value fh in
+      let cached = input_value fh in
       close_in fh;
-      m (* will ge given a type by unification with the "then" clause. *)
+      cached (* will ge given a type by unification with the "then" clause. *)
     )
 
   (* Return the OPAM package containing the findlib module.  See
@@ -128,8 +135,16 @@ module Opam = struct
                     lib (String.concat ", " (List.map to_string pkgs)));
        pkgs
     | [] ->
-       error(sprintf "OPAM package for %S not found." lib);
-       [lib, Version.Set.empty]
+       (* FIXME: do we want to check that there is a version
+          satisfying the possible version constraints? *)
+       try
+         let v_set = M.find lib packages in (* or raise Not_found *)
+         warn(sprintf "Guessing that OPAM package %S provides Findlib %S."
+                      lib lib);
+         [lib, v_set]
+       with Not_found ->
+         error(sprintf "OPAM package %S not found!" lib);
+         [lib, Version.Set.empty]
 
   (* Tells whether the two list of packages are equal.  Do not care
      about versions.  Assume the list are sorted as [of_findlib]

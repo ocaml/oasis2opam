@@ -32,7 +32,7 @@ let opam_descr pkg =
   output_char fh '\n';
   (match pkg.description with
    | Some d -> output_wrapped fh d; output_char fh '\n'
-   | None -> warn "Consider setting \"Description:\" in your _oasis file");
+   | None -> warn "Consider adding \"Description:\" to your _oasis file");
   close_out fh
 
 let opam_url pkg url md5 =
@@ -55,7 +55,7 @@ let rec get_first_email = function
 
 let output_maintainer fmt pkg =
   if pkg.maintainers = [] then
-    warn "Consider setting \"Maintainers:\" in your _oasis file.";
+    warn "Consider adding \"Maintainers:\" to your _oasis file.";
   match get_first_email pkg.maintainers with
   | Some e -> Format.fprintf fmt "maintainer: %S@\n" e
   | None ->
@@ -136,7 +136,7 @@ let opam_opam flags pkg =
   Format.fprintf fmt "license: %S@\n" (OASISLicense.to_string pkg.license);
   (match pkg.homepage with
    | Some url -> Format.fprintf fmt "homepage: %S@\n" url
-   | None -> warn "Consider setting \"Homepage:\" in your _oasis file");
+   | None -> warn "Consider adding \"Homepage:\" to your _oasis file");
   output_tags fmt pkg;
   output_build_install fmt flags pkg;
   if List.exists (function Doc _ -> true | _  -> false) pkg.sections then
