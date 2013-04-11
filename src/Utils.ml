@@ -89,14 +89,12 @@ let make_unique ~cmp ~merge l =
   make_unique_loop ~cmp ~merge (List.sort cmp l)
 
 
-let quote_re = Str.regexp "\""
+let to_quote_re = Str.regexp "\\(\"\\|\\\\\\)"
 
-(* Similar String.escaped but only escape '"' so UTF-8 chars are not
-   escaped. *)
+(* Similar String.escaped but only escape '"' and '\'' so UTF-8 chars
+   are not escaped. *)
 let escaped s =
-  if String.contains s '"' then
-    Str.global_replace quote_re "\\\"" s
-  else s
+  Str.global_replace to_quote_re "\\\\\\1" (* \ \1 *) s
 
 
 let space_re = Str.regexp "[ \t\n\r]+"
