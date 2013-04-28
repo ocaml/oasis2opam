@@ -33,17 +33,29 @@ let findlib_with_ocaml =
 
 module Opam = struct
 
+  exception Error of int
+
   let opam =
     let f_exit_code c =
       if c <> 0 then
         if c = 127 then fatal_error "\"opam\" not found.\n"
-        else fatal_error(sprintf "\"opam\" returned the error code %d.\n" c) in
+        else raise(Error c) in
     fun cmd ->
     OASISExec.run_read_one_line
       ~ctxt:!OASISContext.default ~f_exit_code
       "opam" cmd
 
-  let root = opam ["config"; "var"; "root"]
+  let root =
+    try Sys.getenv "OPAMROOT"
+    with Not_found ->
+      try opam ["config"; "var"; "root"]
+      with Error 66 ->
+        (* "root" not an opam variable; use same as OpamGlobals.home *)
+        let home = try Sys.getenv "HOME"
+                   with Not_found -> Sys.getcwd () in
+        let r = Filename.concat home ".opam" in
+        info(sprintf "Using %s as opam root." r);
+        r
 
   let space_re = Str.regexp "[ \t\n\r]+"
   let pkg_re = Str.regexp "\\([a-zA-Z0-9_-]+\\)\\.\\(.+\\)\\.opam"
