@@ -258,48 +258,92 @@ let get_findlib_libraries flags pkg =
 (* Format OPAM output
  ***********************************************************************)
 
-let string_of_package (pkg, version) =
-  match version with
-  | None -> sprintf "%S" pkg
-  | Some v -> sprintf "%S {%s}" pkg (Version.string_of_comparator v)
+(* Add to [l] a list of string representing the package [name] — of
+   which the [versions] provide a library — with possible version
+   constraints if not all package versions are present.  It is assumed
+   that the oasis versions and the OPAM ones coincide. *)
+let add_strings_of_package oasis_version (name, versions) l =
+  let opam_versions = Opam.package_versions name in
+  let latest = Version.Set.max_elt opam_versions in
+  match oasis_version with
+  | None ->
+     if Version.Set.equal versions opam_versions
+        || Version.Set.is_empty versions then
+       (* All OPAM versions have the library (an empty set of versions
+          means anything is accepted).  One expects it will still be
+          the case in the future. *)
+       sprintf "%S" name :: l
+     else
+       (* Only some OPAM versions have the lib.  If the [latest] is
+          among them, then assume it will remain the case in the future. *)
+       let add v l =
+         let c = if OASISVersion.version_compare v latest = 0 then ">="
+                 else "=" in
+         sprintf "%S {%s %S}" name c (OASISVersion.string_of_version v) :: l in
+       Version.Set.fold add versions l
+  | Some oasis_version ->
+     (* Only keep the versions that satisfy the constraint. *)
+     let satisfy_constraint v =
+       OASISVersion.comparator_apply v oasis_version in
+     let good_versions = Version.Set.filter satisfy_constraint versions in
+     (* If the latest version is in the set providing the library,
+        then we assume that the [oasis_version] is the only constraint
+        the author wants.  Otherwise, the package may have evolved and
+        we only add the [good_versions]. *)
+     if Version.Set.mem latest good_versions
+        || Version.Set.is_empty versions then
+       sprintf "%S {%s}" name (Version.string_of_comparator oasis_version) :: l
+     else
+       let add v l =
+         sprintf "%S {= %S}" name (OASISVersion.string_of_version v) :: l in
+       Version.Set.fold add good_versions l
 
-let string_of_packages (pkgs, v) =
-  match pkgs with
+
+let strings_of_packages (pkgs, oasis_version) =
+  List.fold_right (add_strings_of_package oasis_version) pkgs []
+
+let string_of_packages pkgs_version =
+  match strings_of_packages pkgs_version with
   | [] -> ""
-  | [pkg, _version] -> string_of_package (pkg, v)
-  | _ ->
-     (* When multiple packages provide a given ocamlfind library, do
-        not choose, list them all as possible choices.  *)
-     let pkgs = List.map (fun (p,_) -> string_of_package (p,v)) pkgs in
+  | [pkg] -> pkg
+  | pkgs ->
+     (* When multiple packages (or multiple package versions) provide
+        a given ocamlfind library, do not choose, list them all as
+        possible choices.  *)
      "(" ^ (String.concat " | " pkgs) ^ ")"
+
 
 let output fmt flags pkg =
   let deps, opt = get_findlib_dependencies flags pkg in
 
+  (* list of dependencies repeated => satisfy both constraints. *)
+  let merge_pkgs (p1, v1) (p2, v2) =
+    (Opam.intersect_pkgs p1 p2, Version.satisfy_both v1 v2) in
+
   (* Required dependencies. *)
   let pkgs = List.map (fun (l,v,_) -> (Opam.of_findlib_warn l, v)) deps in
   let pkgs = (["ocamlfind", Version.Set.empty], pkg.findlib_version) :: pkgs in
-  let pkgs =
-    (* list of dependencies repeated => satisfy both constraints. *)
-    let merge (p1, v1) (p2, v2) =
-      (Opam.intersect_pkgs p1 p2, Version.satisfy_both v1 v2) in
-    make_unique ~cmp:(fun (p1,_) (p2, _) -> Opam.compare_pkgs p1 p2)
-                ~merge
-                pkgs in
+  let pkgs = make_unique ~cmp:(fun (p1,_) (p2, _) -> Opam.compare_pkgs p1 p2)
+                         ~merge:merge_pkgs
+                         pkgs in
   Format.fprintf fmt "@[<2>depends: [";
   List.iter (fun p -> Format.fprintf fmt "@\n%s" (string_of_packages p)) pkgs;
   Format.fprintf fmt "@]@\n]@\n";
   if opt <> [] then (
-    (* Optional packages are a simple "or-formula".  Gather all packages. *)
+    (* Optional packages are a simple "or-formula".  Gather all packages
+       individually (but use the same data-structure as above). *)
     let add_pkgs pkgs (l,v,_) =
-      List.fold_left (fun pk (p,_) -> (p,v) :: pk) pkgs (Opam.of_findlib_warn l) in
+      List.fold_left (fun pk p -> ([p],v) :: pk) pkgs (Opam.of_findlib_warn l) in
     let pkgs = List.fold_left add_pkgs [] opt in
-    let pkgs = make_unique
-                 ~cmp:(fun (p1,_) (p2,_) -> String.compare p1 p2)
-                 ~merge:(fun (p, v1) (_, v2) -> (p, Version.satisfy_both v1 v2))
-                 pkgs in
+    let pkgs = make_unique ~cmp:(fun (p1,_) (p2,_) -> Opam.compare_pkgs p1 p2)
+                           ~merge:merge_pkgs
+                           pkgs in
     Format.fprintf fmt "@[<2>depopts: [";
-    List.iter (fun p -> Format.fprintf fmt "@\n%s" (string_of_package p)) pkgs;
+    List.iter (fun p -> Format.fprintf fmt "@[<2>";
+                     let p = strings_of_packages p in
+                     List.iter (fun s -> Format.fprintf fmt "%s@ " s) p;
+                     Format.fprintf fmt "@]@\n"
+              ) pkgs;
     Format.fprintf fmt "@]@\n]@\n";
   );
   (* Conflicts.  There are other packages (& version in case the

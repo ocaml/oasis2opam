@@ -24,9 +24,8 @@
 
 open OASISVersion
 
-  let to_string (p, v) =
-    p ^ " (" ^ OASISVersion.string_of_version v ^ ")"
-
+let to_string (p, v) =
+  p ^ " (" ^ OASISVersion.string_of_version v ^ ")"
 
 module Ordered = struct
   type t = OASISVersion.t
