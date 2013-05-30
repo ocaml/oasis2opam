@@ -130,8 +130,12 @@ module Opam = struct
       cached (* will ge given a type by unification with the "then" clause. *)
     )
 
-  (* Return the OPAM package containing the findlib module.  See
-     https://github.com/OCamlPro/opam/issues/573 *)
+  (** Return the set of available versions for the OPAM package [pkg]
+      or raise [Not_found]. *)
+  let package_versions pkg = M.find pkg packages
+
+  (** Return the OPAM package(s) containing the findlib module.  See
+      https://github.com/OCamlPro/opam/issues/573 *)
   let of_findlib lib =
     try M.find lib findlib (* <> [] *) with Not_found -> []
 
@@ -150,7 +154,7 @@ module Opam = struct
        (* FIXME: do we want to check that there is a version
           satisfying the possible version constraints? *)
        try
-         let v_set = M.find lib packages in (* or raise Not_found *)
+         let v_set = package_versions lib in (* or raise Not_found *)
          warn(sprintf "Guessing that OPAM package %S provides Findlib %S."
                       lib lib);
          [lib, v_set]
@@ -158,7 +162,7 @@ module Opam = struct
          error(sprintf "OPAM package %S not found!" lib);
          [lib, Version.Set.empty]
 
-  (* Tells whether the two list of packages are equal.  Do not care
+  (* Tells whether the two lists of packages are equal.  Do not care
      about versions.  Assume the list are sorted as [of_findlib]
      provides them.  *)
   let rec compare_pkgs p1 p2 = match p1, p2 with
@@ -168,6 +172,22 @@ module Opam = struct
        if cp <> 0 then cp else compare_pkgs tl1 tl2
     | _, [] -> 1
     | [], _ -> -1
+
+  (* Merge two lists of packages, taking only those common to the two
+     lists and the versions in both lists.  An empty version set is
+     interpreted as "any version is OK".  Assume the list are sorted
+     in increasing order as [of_findlib] provides them.  *)
+  let rec intersect_pkgs p1 p2 = match p1, p2 with
+    | (name1, v1) :: tl1, (name2, v2) :: tl2 ->
+       let cp = String.compare name1 name2 in
+       if cp < 0 then intersect_pkgs tl1 p2       (* name1 not in p2 *)
+       else if cp > 0 then intersect_pkgs p1 tl2  (* name2 not in p1 *)
+       else (* name1 = name2 *)
+         let v_set = if Version.Set.is_empty v1 then v2
+                     else if Version.Set.is_empty v2 then v1
+                     else Version.Set.inter v1 v2 in
+         (name1, v_set) :: intersect_pkgs tl1 tl2
+    | _, [] | [], _ -> []
 end
 
 (* Gather findlib packages
@@ -259,10 +279,13 @@ let output fmt flags pkg =
   (* Required dependencies. *)
   let pkgs = List.map (fun (l,v,_) -> (Opam.of_findlib_warn l, v)) deps in
   let pkgs = (["ocamlfind", Version.Set.empty], pkg.findlib_version) :: pkgs in
-  let pkgs = make_unique
-               ~cmp:(fun (p1,_) (p2, _) -> Opam.compare_pkgs p1 p2)
-               ~merge:(fun (p, v1) (_, v2) -> (p, Version.satisfy_both v1 v2))
-               pkgs in
+  let pkgs =
+    (* list of dependencies repeated => satisfy both constraints. *)
+    let merge (p1, v1) (p2, v2) =
+      (Opam.intersect_pkgs p1 p2, Version.satisfy_both v1 v2) in
+    make_unique ~cmp:(fun (p1,_) (p2, _) -> Opam.compare_pkgs p1 p2)
+                ~merge
+                pkgs in
   Format.fprintf fmt "@[<2>depends: [";
   List.iter (fun p -> Format.fprintf fmt "@\n%s" (string_of_packages p)) pkgs;
   Format.fprintf fmt "@]@\n]@\n";
