@@ -49,7 +49,7 @@ module Opam = struct
     try Sys.getenv "OPAMROOT"
     with Not_found ->
       try opam ["config"; "var"; "root"]
-      with Error 66 ->
+      with Error 66 | Error 1 ->
         (* "root" not an opam variable; use same as OpamGlobals.home *)
         let home = try Sys.getenv "HOME"
                    with Not_found -> Sys.getcwd () in
