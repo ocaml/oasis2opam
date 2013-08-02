@@ -72,8 +72,9 @@ let download ?(retry=2) url =
 
 
 let oasis_re = Str.regexp "\\(.*/\\|\\)_oasis$"
+let opam_re = Str.regexp "\\(.*/\\|\\)_opam$"
 
-let get_oasis_md5_of_tarball tarball =
+let get_oasis_md5_opam_of_tarball tarball =
   let md5 = Digest.to_hex(Digest.file tarball) in
   let content = tar ["--list"] tarball in
   let oasis_path =
@@ -82,10 +83,15 @@ let get_oasis_md5_of_tarball tarball =
   let oasis = tar ["--to-stdout"; "--extract"; oasis_path] tarball in
   let oasis = String.concat "\n" oasis in
   let pkg = OASISParse.from_string !OASISContext.default oasis in
-  pkg, md5
+  let opam =
+    try let path = List.find (fun s -> Str.string_match opam_re s 0) content in
+        let opam = tar ["--to-stdout"; "--extract"; path] tarball in
+        Some(String.concat "\n" opam)
+    with Not_found -> None in
+  pkg, md5, opam
 
 
-let get_oasis_md5 url =
+let get_oasis_md5_opam url =
   let is_http = OASISString.starts_with "http://" url
                 || OASISString.starts_with "https://" url in
   if is_http then (
@@ -95,10 +101,10 @@ let get_oasis_md5 url =
       Unix.chdir tmp_dir;
       download url;
       let tarball = single_filename tmp_dir in
-      let pkg_md5 = get_oasis_md5_of_tarball tarball in
+      let pkg_md5_opam = get_oasis_md5_opam_of_tarball tarball in
       Unix.chdir cwd;
       rm_recursively tmp_dir;
-      pkg_md5
+      pkg_md5_opam
     with
     | Program_not_found p ->
        Unix.chdir cwd;
@@ -110,4 +116,4 @@ let get_oasis_md5 url =
        raise e
   )
   else
-    get_oasis_md5_of_tarball url
+    get_oasis_md5_opam_of_tarball url

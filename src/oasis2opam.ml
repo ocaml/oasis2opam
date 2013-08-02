@@ -126,7 +126,7 @@ let output_build_install fmt flags pkg =
   )
 
 
-let opam_opam flags pkg =
+let opam_opam flags pkg opam =
   let fh = open_out(Filename.concat (opam_dir pkg) "opam") in
   let fmt = Format.formatter_of_out_channel fh in
   Format.fprintf fmt "opam-version: \"1\"@\n";
@@ -145,6 +145,12 @@ let opam_opam flags pkg =
   (match pkg.ocaml_version with
    | Some v -> Format.fprintf fmt "ocaml-version: [ %s ]@\n"
                              (Version.string_of_comparator v)
+   | None -> ());
+  (* If an _opam file (say with "depexts") exists in the archive, append it. *)
+  (match opam with
+   | Some opam ->
+      info "The _opam file found in tarball has been appended to opam.";
+      Format.fprintf fmt "%s\n" opam
    | None -> ());
   Format.pp_print_flush fmt ();
   close_out fh
@@ -210,12 +216,12 @@ let () =
   );
   if !url = "" then (Arg.usage specs usage_msg; exit 1);
 
-  let pkg, md5 = Tarball.get_oasis_md5 !url in
+  let pkg, md5, opam = Tarball.get_oasis_md5_opam !url in
   let flags = get_flags pkg.sections in
   let dir = opam_dir pkg in
   (try Unix.mkdir dir 0o777 with Unix.Unix_error (Unix.EEXIST, _, _) -> ());
   opam_descr pkg;
   opam_url pkg !url md5;
-  opam_opam flags pkg;
+  opam_opam flags pkg opam;
   opam_install flags pkg;
   info (sprintf "OPAM package %S created." dir)
