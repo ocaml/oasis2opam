@@ -58,7 +58,8 @@ module Opam = struct
         r
 
   let space_re = Str.regexp "[ \t\n\r]+"
-  let pkg_re = Str.regexp "\\([a-zA-Z0-9_-]+\\)\\.\\(.+\\)\\.opam"
+  let pkg_re_1_1 = Str.regexp "^\\([a-zA-Z0-9_-]+\\)\\.\\(.+\\)$"
+  let pkg_re_1_0 = Str.regexp "^\\([a-zA-Z0-9_-]+\\)\\.\\(.+\\)\\.opam"
   let findlib_re =
     Str.regexp "\"ocamlfind\" +\"remove\" +\"\\([a-zA-Z0-9_.-]+\\)\""
 
@@ -95,27 +96,38 @@ module Opam = struct
       (* Need to browse the opam dir again. *)
       let m = ref M.empty in
       let pkgs = ref M.empty in
-      let dir = Filename.concat root "packages" in
-      (* For OPAM < 1.1, the sub-dir "opam" was used: *)
-      let dir = if (try Sys.is_directory dir with _ -> false) then dir
-                else Filename.concat root "opam" in
-      let all_pkg_ver = Sys.readdir dir in
-      let add pkg_ver =
-        if Str.string_match pkg_re pkg_ver 0 then (
+      let rec add_of_dir dir =
+        if (try Sys.is_directory dir with _ -> false) then
+          Array.iter (add_opam dir) (Sys.readdir dir)
+      and add_opam dir pkg_ver =
+        let fname = Filename.concat dir pkg_ver in
+        if Str.string_match pkg_re_1_1 pkg_ver 0 then (
           let opam = Str.matched_group 1 pkg_ver in
           let version = Str.matched_group 2 pkg_ver in
-          let version = OASISVersion.version_of_string version in
+          add opam version (Filename.concat fname "opam")
+        )
+        else if Str.string_match pkg_re_1_0 pkg_ver 0 then (
+          let opam = Str.matched_group 1 pkg_ver in
+          let version = Str.matched_group 2 pkg_ver in
+          add opam version fname
+        )
+        else (* OPAM 1.1 stores packages hierarchically.  Recurse. *)
+          add_of_dir fname
+      and add opam_pkg version opam_file =
+        let version = OASISVersion.version_of_string version in
+        let s = read_whole_file opam_file in
+        let s = Str.global_replace space_re " " s in
+        add_all_findlib m (opam_pkg, Version.Set.singleton version) s 0;
+        (* We also want to keep a correspondence of OPAM packages →
+           versions (even those with no findlib detectable lib) *)
+        let v_set = try Version.Set.add version (M.find opam_pkg !pkgs)
+                    with Not_found -> Version.Set.singleton version in
+        pkgs := M.add opam_pkg v_set !pkgs;
+      in
+      add_of_dir (Filename.concat root "packages");
+      (* For OPAM < 1.1, the sub-dir "opam" was used: *)
+      add_of_dir (Filename.concat root "opam");
 
-          let s = read_whole_file (Filename.concat dir pkg_ver) in
-          let s = Str.global_replace space_re " " s in
-          add_all_findlib m (opam, Version.Set.singleton version) s 0;
-          (* We also want to keep a correspondence of OPAM packages →
-             versions (even those with no findlib detectable lib) *)
-          let v_set = try Version.Set.add version (M.find opam !pkgs)
-                      with Not_found -> Version.Set.singleton version in
-          pkgs := M.add opam v_set !pkgs;
-        ) in
-      Array.iter add all_pkg_ver;
       m := M.add "findlib" [("ocamlfind", Version.Set.empty)] !m;
       let m = M.map (fun pkgs -> merge_versions pkgs) !m in
       (* Cache *)
