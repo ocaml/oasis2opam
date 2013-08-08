@@ -95,7 +95,10 @@ module Opam = struct
       (* Need to browse the opam dir again. *)
       let m = ref M.empty in
       let pkgs = ref M.empty in
-      let dir = Filename.concat root "opam" in
+      let dir = Filename.concat root "packages" in
+      (* For OPAM < 1.1, the sub-dir "opam" was used: *)
+      let dir = if (try Sys.is_directory dir with _ -> false) then dir
+                else Filename.concat root "opam" in
       let all_pkg_ver = Sys.readdir dir in
       let add pkg_ver =
         if Str.string_match pkg_re pkg_ver 0 then (
