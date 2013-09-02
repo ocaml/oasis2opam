@@ -90,7 +90,7 @@ module Opam = struct
     let state = Filename.concat root "state.cache" in
     let m_state = try (Unix.stat state).Unix.st_mtime
                   with Unix.Unix_error(Unix.ENOENT,_,_) -> infinity in
-    (* FIXME: when oasis2opam upgrades, the cache must bu updated (the
+    (* FIXME: when oasis2opam upgrades, the cache must be updated (the
        type may change). *)
     if m_cache < Conf.compilation_time || m_cache < m_state then (
       (* Need to browse the opam dir again. *)
@@ -101,15 +101,16 @@ module Opam = struct
           Array.iter (add_opam dir) (Sys.readdir dir)
       and add_opam dir pkg_ver =
         let fname = Filename.concat dir pkg_ver in
-        if Str.string_match pkg_re_1_1 pkg_ver 0 then (
-          let opam = Str.matched_group 1 pkg_ver in
-          let version = Str.matched_group 2 pkg_ver in
-          add opam version (Filename.concat fname "opam")
-        )
-        else if Str.string_match pkg_re_1_0 pkg_ver 0 then (
+        (* One must first try if an .opam extension is present. *)
+        if Str.string_match pkg_re_1_0 pkg_ver 0 then (
           let opam = Str.matched_group 1 pkg_ver in
           let version = Str.matched_group 2 pkg_ver in
           add opam version fname
+        )
+        else if Str.string_match pkg_re_1_1 pkg_ver 0 then (
+          let opam = Str.matched_group 1 pkg_ver in
+          let version = Str.matched_group 2 pkg_ver in
+          add opam version (Filename.concat fname "opam")
         )
         else (* OPAM 1.1 stores packages hierarchically.  Recurse. *)
           add_of_dir fname
@@ -362,7 +363,7 @@ let output fmt flags pkg =
     Format.fprintf fmt "@]@\n]@\n";
   );
   (* Conflicts.  There are other packages (& version in case the
-     conflict is removed) which provide the same library. *)
+     conflict is or will be removed) which provide the same library. *)
   let libs = get_findlib_libraries flags pkg in
   let add_conflict c lib =
     let pkgs = Opam.of_findlib lib in
