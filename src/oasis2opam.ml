@@ -26,7 +26,8 @@ open Utils
 
 (* Write OPAM "descr" & "url" files.
  ***********************************************************************)
-let opam_descr pkg =
+let opam_descr t =
+  let pkg = Tarball.oasis t in
   let fh = open_out(Filename.concat (opam_dir pkg) "descr") in
   output_string fh pkg.synopsis;
   output_char fh '\n';
@@ -35,9 +36,10 @@ let opam_descr pkg =
    | None -> warn "Consider adding \"Description:\" to your _oasis file");
   close_out fh
 
-let opam_url pkg url md5 =
+let opam_url t =
+  let pkg = Tarball.oasis t in
   let fh = open_out(Filename.concat (opam_dir pkg) "url") in
-  fprintf fh "archive: %S\nchecksum: %S\n" url md5;
+  fprintf fh "archive: %S\nchecksum: %S\n" (Tarball.url t) (Tarball.md5 t);
   close_out fh
 
 (* Write OPAM "opam" file.
@@ -126,7 +128,8 @@ let output_build_install fmt flags pkg =
   )
 
 
-let opam_opam flags pkg opam =
+let opam_opam t flags =
+  let pkg = Tarball.oasis t in
   let fh = open_out(Filename.concat (opam_dir pkg) "opam") in
   let fmt = Format.formatter_of_out_channel fh in
   Format.fprintf fmt "opam-version: \"1\"@\n";
@@ -147,16 +150,17 @@ let opam_opam flags pkg opam =
                              (Version.string_of_comparator v)
    | None -> ());
   (* If an _opam file (say with "depexts") exists in the archive, append it. *)
-  (match opam with
-   | Some opam ->
-      info "The _opam file found in tarball has been appended to opam.";
-      Format.fprintf fmt "%s\n" opam
-   | None -> ());
+  let opam = Tarball.opam t in
+  if opam <> "" then (
+    info "The _opam file found in tarball has been appended to opam.";
+    Format.fprintf fmt "%s\n" opam
+  );
   Format.pp_print_flush fmt ();
   close_out fh
 
 
-let opam_install flags pkg =
+let opam_install t flags =
+  let pkg = Tarball.oasis t in
   (* FIXME: This is extremely naive.  This functionality should be in
      an oasis plugin.  Until then, we can live with this... *)
   let gather_exec bins = function
@@ -216,12 +220,13 @@ let () =
   );
   if !url = "" then (Arg.usage specs usage_msg; exit 1);
 
-  let pkg, md5, opam = Tarball.get_oasis_md5_opam !url in
+  let t = Tarball.get !url in
+  let pkg = Tarball.oasis t in
   let flags = get_flags pkg.sections in
   let dir = opam_dir pkg in
   (try Unix.mkdir dir 0o777 with Unix.Unix_error (Unix.EEXIST, _, _) -> ());
-  opam_descr pkg;
-  opam_url pkg !url md5;
-  opam_opam flags pkg opam;
-  opam_install flags pkg;
+  opam_descr t;
+  opam_url t;
+  opam_opam t flags;
+  opam_install t flags;
   info (sprintf "OPAM package %S created." dir)
