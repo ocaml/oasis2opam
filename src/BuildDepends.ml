@@ -110,7 +110,9 @@ module Opam = struct
         else if Str.string_match pkg_re_1_1 pkg_ver 0 then (
           let opam = Str.matched_group 1 pkg_ver in
           let version = Str.matched_group 2 pkg_ver in
-          add opam version (Filename.concat fname "opam")
+          let opam_file = Filename.concat fname "opam" in
+          if Sys.file_exists opam_file then
+            add opam version opam_file
         )
         else (* OPAM 1.1 stores packages hierarchically.  Recurse. *)
           add_of_dir fname
@@ -125,7 +127,7 @@ module Opam = struct
                     with Not_found -> Version.Set.singleton version in
         pkgs := M.add opam_pkg v_set !pkgs;
       in
-      add_of_dir (Filename.concat root "packages");
+      add_of_dir (Filename.concat root "repo");
       (* For OPAM < 1.1, the sub-dir "opam" was used: *)
       add_of_dir (Filename.concat root "opam");
 
