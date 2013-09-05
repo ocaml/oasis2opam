@@ -18,8 +18,13 @@ val oasis : t -> OASISTypes.package
 (** Return the content of the _oasis file.  A fatal error is issued if
     the tarball does not contain an _oasis file. *)
 
+val needs_oasis : t -> bool
+(** Whether oasis is required to compile, either because there is no
+    setup.ml file or because dynamic mode is used. *)
+
 val opam : t -> string
 (** Return the content of the _opam file in the tarball (or [""] if
     no such file exists). *)
+
 
 ;;

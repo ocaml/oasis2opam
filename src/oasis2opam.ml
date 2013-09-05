@@ -112,9 +112,12 @@ let output_tags fmt pkg =
     Format.fprintf fmt "@] ]@\n";
   )
 
-let output_build_install fmt flags pkg =
-  Format.fprintf fmt "@[<2>build: [@\n\
-                      [\"ocaml\" \"setup.ml\" \"-configure\" \
+let output_build_install t fmt flags =
+  let pkg = Tarball.oasis t in
+  Format.fprintf fmt "@[<2>build: [@\n";
+  if Tarball.needs_oasis t then
+    Format.fprintf fmt "[\"oasis\" \"setup\"]@\n";
+  Format.fprintf fmt "[\"ocaml\" \"setup.ml\" \"-configure\" \
                       \"--prefix\" prefix]@\n\
                       [\"ocaml\" \"setup.ml\" \"-build\"]@\n\
                       [\"ocaml\" \"setup.ml\" \"-install\"]\
@@ -141,10 +144,10 @@ let opam_opam t flags =
    | Some url -> Format.fprintf fmt "homepage: %S@\n" url
    | None -> warn "Consider adding \"Homepage:\" to your _oasis file");
   output_tags fmt pkg;
-  output_build_install fmt flags pkg;
+  output_build_install t fmt flags;
   if List.exists (function Doc _ -> true | _  -> false) pkg.sections then
     Format.fprintf fmt "build-doc: [ \"ocaml\" \"setup.ml\" \"-doc\" ]@\n";
-  BuildDepends.output fmt flags pkg;
+  BuildDepends.output t fmt flags;
   (match pkg.ocaml_version with
    | Some v -> Format.fprintf fmt "ocaml-version: [ %s ]@\n"
                              (Version.string_of_comparator v)

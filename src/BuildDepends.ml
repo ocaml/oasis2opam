@@ -331,7 +331,8 @@ let string_of_packages pkgs_version =
      "(" ^ (String.concat " | " pkgs) ^ ")"
 
 
-let output fmt flags pkg =
+let output t fmt flags =
+  let pkg = Tarball.oasis t in
   let deps, opt = get_findlib_dependencies flags pkg in
 
   (* list of dependencies repeated => satisfy both constraints. *)
@@ -341,6 +342,9 @@ let output fmt flags pkg =
   (* Required dependencies. *)
   let pkgs = List.map (fun (l,v,_) -> (Opam.of_findlib_warn l, v)) deps in
   let pkgs = (["ocamlfind", Version.Set.empty], pkg.findlib_version) :: pkgs in
+  let pkgs = if Tarball.needs_oasis t then
+               (["oasis", Version.Set.empty], None) :: pkgs
+             else pkgs in
   let pkgs = make_unique ~cmp:(fun (p1,_) (p2, _) -> Opam.compare_pkgs p1 p2)
                          ~merge:merge_pkgs
                          pkgs in

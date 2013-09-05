@@ -34,6 +34,7 @@ type t = {
   content: string list;
   mutable pkg: OASISTypes.package option;
   mutable opam: string option;
+  mutable needs_oasis: bool option;
 }
 
 let check_exists tarball =
@@ -97,6 +98,7 @@ let t_of_tarball ~url tarball =
     content = tar ["--list"] tarball;
     pkg = None;
     opam = None;
+    needs_oasis = None;
   }
 
 let get url =
@@ -160,3 +162,25 @@ let opam t =
      let opam = try get_file t opam_re with Not_found -> "" in
      t.opam <- Some opam;
      opam
+
+let setup_re = Str.regexp "\\(.*/\\|\\)setup\\.ml"
+let newline_re = Str.regexp "[\n\r]+"
+let dynamic_re = Str.regexp "^#require \"oasis.dynrun\""
+
+let needs_oasis t =
+  match t.needs_oasis with
+  | Some b -> b
+  | None ->
+     check_exists t.tarball;
+     let setup = try get_file t setup_re with Not_found -> "" in
+     let need =
+       if setup = "" then true
+       else (
+         (* Explore the file to see whether dynamic mode is used. *)
+         let l = Str.split newline_re setup in
+         List.exists (fun l -> Str.string_match dynamic_re l 0) l
+       ) in
+     t.needs_oasis <- Some need;
+     need
+
+
