@@ -20,8 +20,10 @@
 (*  USA.                                                                   *)
 (***************************************************************************)
 
-(*							-*-tuareg-*- *)
-
 let version = "$(pkg_version)"
 let git_hash = "$(git_hash)"
 let compilation_time = $(compilation_time)
+
+(* Local Variables: *)
+(* mode: tuareg *)
+(* End: *)

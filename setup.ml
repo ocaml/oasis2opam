@@ -33,6 +33,8 @@ let () =
 open OASISDynRun;;
 (* OASIS_STOP *)
 
+#load "unix.cma";;
+
 let git_hash() =
   try
     OASISExec.run_read_one_line ~ctxt:!OASISContext.default
