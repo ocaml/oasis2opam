@@ -22,6 +22,9 @@ val needs_oasis : t -> bool
 (** Whether oasis is required to compile, either because there is no
     setup.ml file or because dynamic mode is used. *)
 
+val setup_ml_exists : t -> bool
+(** Whether a file "setup.ml" exists in the tarball. *)
+
 val opam : t -> string
 (** Return the content of the _opam file in the tarball (or [""] if
     no such file exists). *)

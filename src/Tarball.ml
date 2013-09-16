@@ -35,6 +35,7 @@ type t = {
   mutable pkg: OASISTypes.package option;
   mutable opam: string option;
   mutable needs_oasis: bool option;
+  mutable setup_ml_exists: bool option;
 }
 
 let check_exists tarball =
@@ -99,6 +100,7 @@ let t_of_tarball ~url tarball =
     pkg = None;
     opam = None;
     needs_oasis = None;
+    setup_ml_exists = None;
   }
 
 let get url =
@@ -167,6 +169,14 @@ let setup_re = Str.regexp "\\(.*/\\|\\)setup\\.ml"
 let newline_re = Str.regexp "[\n\r]+"
 let dynamic_re = Str.regexp "^#require \"oasis.dynrun\""
 
+let setup_ml_exists t =
+  match t.setup_ml_exists with
+  | Some b -> b
+  | None ->
+     let e = try ignore(get_file t setup_re); true with Not_found -> false in
+     t.setup_ml_exists <- Some e;
+     e
+
 let needs_oasis t =
   match t.needs_oasis with
   | Some b -> b
@@ -176,11 +186,10 @@ let needs_oasis t =
      let need =
        if setup = "" then true
        else (
+         t.setup_ml_exists <- Some true;
          (* Explore the file to see whether dynamic mode is used. *)
          let l = Str.split newline_re setup in
          List.exists (fun l -> Str.string_match dynamic_re l 0) l
        ) in
      t.needs_oasis <- Some need;
      need
-
-

@@ -115,7 +115,7 @@ let output_tags fmt pkg =
 let output_build_install t fmt flags =
   let pkg = Tarball.oasis t in
   Format.fprintf fmt "@[<2>build: [@\n";
-  if Tarball.needs_oasis t then
+  if not(Tarball.setup_ml_exists t) then
     Format.fprintf fmt "[\"oasis\" \"setup\"]@\n";
   Format.fprintf fmt "[\"ocaml\" \"setup.ml\" \"-configure\" \
                       \"--prefix\" prefix]@\n\
