@@ -412,14 +412,14 @@ let add_filter_string_of_package (name, versions) l =
   if Version.Set.equal versions opam_versions
      || Version.Set.is_empty versions then
     (* All OPAM libs have the lib [name] *)
-    sprintf "%%{%s:installed}%%" name :: l
+    sprintf "\"%%{%s:installed}%%\"" name :: l
   else
     (* Only some OPAM versions have the lib. If the [latest] is
        among them, then assume it will remain the case in the future. *)
     let add v l =
       let c = if OASISVersion.version_compare v latest = 0 then ">="
               else "=" in
-      sprintf "%%{%s:version}%% %s %S"
+      sprintf "\"%%{%s:version}%%\" %s %S"
               name c (OASISVersion.string_of_version v) :: l in
     Version.Set.fold add versions l
 
