@@ -112,13 +112,26 @@ let output_tags fmt pkg =
     Format.fprintf fmt "@] ]@\n";
   )
 
+
 let output_build_install t fmt flags =
   let pkg = Tarball.oasis t in
   Format.fprintf fmt "@[<2>build: [@\n";
   if not(Tarball.setup_ml_exists t) then
     Format.fprintf fmt "[\"oasis\" \"setup\"]@\n";
-  Format.fprintf fmt "[\"ocaml\" \"setup.ml\" \"-configure\" \
-                      \"--prefix\" prefix]@\n\
+  (* FIXME: convention: if a flag is the name of a Findlib package,
+     enable it only if the corresponding OPAM package is installed. *)
+  Format.fprintf fmt "@[<2>[\"ocaml\" \"setup.ml\" \"-configure\" \
+                      \"--prefix\" prefix";
+  let add_flindlib_flags n _ l =
+    match BuildDepends.Opam.of_findlib n with
+    | [] -> l
+    | pkgs -> (n, pkgs) :: l in
+  let pkg_flags = M.fold add_flindlib_flags flags [] in
+  let flag_enable (n, pkgs) =
+    Format.fprintf fmt "@\n--enable-%s%s"
+                   n (BuildDepends.filter_string_of_packages pkgs) in
+  List.iter flag_enable pkg_flags;
+  Format.fprintf fmt "@]]@\n\
                       [\"ocaml\" \"setup.ml\" \"-build\"]@\n\
                       [\"ocaml\" \"setup.ml\" \"-install\"]\
                       @]@\n]@\n";
