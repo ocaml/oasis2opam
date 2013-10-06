@@ -403,39 +403,3 @@ let output_duplicates fh =
        fprintf fh "%s -> %s\n" lib pkgs in
   fprintf fh "Findlib -> multiple OPAM\n";
   M.iter output Opam.findlib
-
-
-(* Similar to {!add_strings_of_package} but for OPAM filters. *)
-let add_filter_string_of_package (name, versions) l =
-  let opam_versions = Opam.package_versions name in
-  let latest = Version.Set.max_elt opam_versions in
-  if Version.Set.equal versions opam_versions
-     || Version.Set.is_empty versions then
-    (* All OPAM libs have the lib [name] *)
-    sprintf "\"%%{%s:installed}%%\"" name :: l
-  else
-    (* Only some OPAM versions have the lib. If the [latest] is
-       among them, then assume it will remain the case in the future. *)
-    let add v l =
-      let c = if OASISVersion.version_compare v latest = 0 then ">="
-              else "=" in
-      sprintf "\"%%{%s:version}%%\" %s %S"
-              name c (OASISVersion.string_of_version v) :: l in
-    Version.Set.fold add versions l
-
-let filter_strings_of_packages pkgs =
-  List.fold_right add_filter_string_of_package pkgs []
-
-let filter_string_of_packages pkgs =
-  match filter_strings_of_packages pkgs with
-  | [] -> ""
-  | s -> " { " ^ String.concat " | " s ^ " }"
-
-let fprint_filter_of_packages fmt pkgs =
-  match filter_strings_of_packages pkgs with
-  | [] -> ()
-  | [s] -> Format.fprintf fmt " { %s }" s;
-  | pkg0 :: pkgs ->
-     Format.fprintf fmt " @[{ %s" pkg0;
-     List.iter (fun s -> Format.fprintf fmt "@ | %s" s) pkgs;
-     Format.fprintf fmt " }@]"

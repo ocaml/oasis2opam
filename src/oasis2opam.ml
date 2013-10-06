@@ -112,6 +112,17 @@ let output_tags fmt pkg =
     Format.fprintf fmt "@] ]@\n";
   )
 
+(* Return an associative list of flags which match findlib packages
+   and OPAM packages providing them (without version number).  *)
+let opam_for_flags flags =
+  let add_findlib n _ l =
+    match BuildDepends.Opam.of_findlib n with
+    | [] -> l
+    | pkgs ->
+       let pkgs = make_unique (List.map fst pkgs)
+                              ~cmp:String.compare ~merge:(fun p _ -> p) in
+       (n, pkgs) :: l in
+  M.fold add_findlib flags []
 
 let output_build_install t fmt flags =
   let pkg = Tarball.oasis t in
@@ -122,15 +133,16 @@ let output_build_install t fmt flags =
      enable it only if the corresponding OPAM package is installed. *)
   Format.fprintf fmt "@[<2>[\"ocaml\" \"setup.ml\" \"-configure\" \
                       \"--prefix\" prefix";
-  let add_flindlib_flags n _ l =
-    match BuildDepends.Opam.of_findlib n with
-    | [] -> l
-    | pkgs -> (n, pkgs) :: l in
-  let pkg_flags = M.fold add_flindlib_flags flags [] in
-  let flag_enable (n, pkgs) =
-    Format.fprintf fmt "@\n\"--enable-%s\"" n;
-    BuildDepends.fprint_filter_of_packages fmt pkgs in
-  List.iter flag_enable pkg_flags;
+  let flag_enable (flag, pkgs) =
+    match pkgs with
+    | [] -> ()
+    | [p] -> Format.fprintf fmt "@\n\"--%%{%s:enable}%%-%s\"" p flag
+    | p0 :: pkgs ->
+       Format.fprintf fmt "@\n\"--enable-%s\" @[{ \"%%{%s:installed}%%\""
+                      flag p0;
+       List.iter (fun p -> Format.fprintf fmt "@ | \"%%{%s:installed}%%\"" p) pkgs;
+       Format.fprintf fmt " }@]" in
+  List.iter flag_enable (opam_for_flags flags);
   Format.fprintf fmt "@]]@\n\
                       [\"ocaml\" \"setup.ml\" \"-build\"]@\n\
                       [\"ocaml\" \"setup.ml\" \"-install\"]\
