@@ -128,8 +128,8 @@ let output_build_install t fmt flags =
     | pkgs -> (n, pkgs) :: l in
   let pkg_flags = M.fold add_flindlib_flags flags [] in
   let flag_enable (n, pkgs) =
-    Format.fprintf fmt "@\n\"--enable-%s\"%s"
-                   n (BuildDepends.filter_string_of_packages pkgs) in
+    Format.fprintf fmt "@\n\"--enable-%s\"" n;
+    BuildDepends.fprint_filter_of_packages fmt pkgs in
   List.iter flag_enable pkg_flags;
   Format.fprintf fmt "@]]@\n\
                       [\"ocaml\" \"setup.ml\" \"-build\"]@\n\

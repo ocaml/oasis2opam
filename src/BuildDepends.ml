@@ -430,3 +430,12 @@ let filter_string_of_packages pkgs =
   match filter_strings_of_packages pkgs with
   | [] -> ""
   | s -> " { " ^ String.concat " | " s ^ " }"
+
+let fprint_filter_of_packages fmt pkgs =
+  match filter_strings_of_packages pkgs with
+  | [] -> ()
+  | [s] -> Format.fprintf fmt " { %s }" s;
+  | pkg0 :: pkgs ->
+     Format.fprintf fmt " @[{ %s" pkg0;
+     List.iter (fun s -> Format.fprintf fmt "@ | %s" s) pkgs;
+     Format.fprintf fmt " }@]"
