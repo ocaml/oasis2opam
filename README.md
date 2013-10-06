@@ -18,6 +18,24 @@ It will download the tarball into a temporary directory, extract the
 Along the way, `oasis2opam` may display suggestions so your OPAM
 package has richer metadata.
 
+Conventions
+-----------
+
+If a Flag name matches a findlib library, ``oasis2opam`` will assume
+it is to be enabled if and only if this library is present and will
+add a --enable-<flag> to the configure step conditioned by the
+presence of the corresponding OPAM packages.
+
+The default value of flags will be used to determine whether the
+libraries appearing in the conditional sections are to be considered
+optional or mandatory.
+
+OPAM tags are generated from the Oasis "Categories:" field by taking
+the basemane of the URL.  Thus ``Categories: http://science`` will
+generate the tag ``science``.  This is sub-optimal but one has to wait
+for a proper description of Oasis categories.
+
+
 Dependencies
 ------------
 
