@@ -24,7 +24,9 @@ Conventions
 If a Flag name matches a findlib library, ``oasis2opam`` will assume
 it is to be enabled if and only if this library is present and will
 add a --enable-<flag> to the configure step conditioned by the
-presence of the corresponding OPAM packages.
+presence of the corresponding OPAM packages (without version
+constraints, you must set these next to the library, in the
+``BuildDepends:`` field).
 
 The default value of flags will be used to determine whether the
 libraries appearing in the conditional sections are to be considered
