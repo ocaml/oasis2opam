@@ -141,11 +141,7 @@ let output_build_install t fmt flags =
        let open Format in
        fprintf fmt "@\n\"--enable-%s\" @[{ \"%%{%s:installed}%%\"" flag p0;
        List.iter (fun p -> fprintf fmt "@ | \"%%{%s:installed}%%\"" p) pkgs;
-       fprintf fmt " }@]";
-       fprintf fmt "@\n\"--disable-%s\" @[<3>{ !( \"%%{%s:installed}%%\""
-               flag p0;
-       List.iter (fun p -> fprintf fmt "@ | \"%%{%s:installed}%%\"" p) pkgs;
-       fprintf fmt " ) }@]" in
+       fprintf fmt " }@]" in
   List.iter flag_enable (opam_for_flags flags);
   Format.fprintf fmt "@]]@\n\
                       [\"ocaml\" \"setup.ml\" \"-build\"]@\n\
