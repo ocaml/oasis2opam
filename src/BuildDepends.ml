@@ -368,11 +368,12 @@ let output t fmt flags =
     let pkgs = make_unique ~cmp:(fun (p1,_) (p2,_) -> Opam.compare_pkgs p1 p2)
                            ~merge:merge_pkgs
                            pkgs in
-    Format.fprintf fmt "@[<1>depopts: [";
-    List.iter (fun p -> Format.fprintf fmt "@\n@[<3>";
-                     let p = strings_of_packages p in
-                     List.iter (fun s -> Format.fprintf fmt "@ %s" s) p;
-                     Format.fprintf fmt "@]"
+    Format.fprintf fmt "@[<2>depopts: [";
+    List.iter (fun p -> match strings_of_packages p with
+                     | [] -> ()
+                     | p0 :: tl ->
+                        Format.fprintf fmt "@\n%s" p0;
+                        List.iter (fun s -> Format.fprintf fmt "@;<1 2>%s" s) tl;
               ) pkgs;
     Format.fprintf fmt "@]@\n]@\n";
   );
