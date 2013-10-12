@@ -26,9 +26,15 @@ open Utils
 
 module S = Set.Make(String)
 
+(* Findlib libraries and their corresponding virtual base OPAM package. *)
+let opam_base_packages = [ "bigarray", "base-bigarray";
+                           "threads", "base-threads";
+                           "unix", "base-unix" ]
+
+(* Findlib libraries coming with OCaml — no OPAM package. *)
 let findlib_with_ocaml =
-  let pkg = [ "bigarray"; "camlp4"; "dynlink"; "graphics"; "labltk"; "num";
-              "ocamlbuild"; "stdlib"; "str"; "threads"; "unix"; "camlp4" ] in
+  let pkg = [ "camlp4"; "dynlink"; "graphics"; "labltk"; "num";
+              "ocamlbuild"; "stdlib"; "str"; "camlp4" ] in
   List.fold_left (fun s e -> S.add e s) S.empty pkg
 
 module Opam = struct
@@ -132,6 +138,8 @@ module Opam = struct
       add_of_dir (Filename.concat root "opam");
 
       m := M.add "findlib" [("ocamlfind", Version.Set.empty)] !m;
+      List.iter (fun (fl, p) -> m := M.add fl [(p, Version.Set.empty)] !m)
+                opam_base_packages;
       let m = M.map (fun pkgs -> merge_versions pkgs) !m in
       (* Cache *)
       let to_cache = (m, !pkgs) in
