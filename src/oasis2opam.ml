@@ -82,7 +82,7 @@ let clib_re = Str.regexp "-l\\([a-zA-Z0-9]+\\)"
 let get_potential_clibs pkg =
   let add_libs libs = function
     | Library(_,bs,_)
-    (* | Object(_,bs,_) *)
+    | Object(_,bs,_)
     | Executable(_,bs,_) ->
        (* Get all potential C libs, independently of the flags *)
        let args = List.flatten (List.map snd bs.bs_cclib) in
@@ -234,7 +234,7 @@ let () =
     " print the oasis2opam version (including the Git hash if relevant)";
   ] in
   let url = ref "" in
-  let specs = Arg.align(specs @ OASISContext.args()) in
+  let specs = Arg.align(specs @ fst (OASISContext.fspecs ())) in
   let usage_msg = "oasis2opam <url or tarball>" in
   Arg.parse specs (fun u -> url := u) usage_msg;
   if !version then (
