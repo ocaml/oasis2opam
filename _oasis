@@ -18,7 +18,7 @@ FilesAB:     src/Conf.ml.ab
 Executable oasis2opam
   Path:           src/
   MainIs:         oasis2opam.ml
-  BuildDepends:   oasis (>= 0.3.0), unix, str
+  BuildDepends:   oasis (>= 0.4.2), unix, str
   CompiledObject: best
   BuildTools:     ocamlbuild
   Install:        true

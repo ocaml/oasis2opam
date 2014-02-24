@@ -34,7 +34,7 @@ let opam_base_packages = [ "bigarray", "base-bigarray";
 (* Findlib libraries coming with OCaml — no OPAM package. *)
 let findlib_with_ocaml =
   let pkg = [ "camlp4"; "dynlink"; "graphics"; "labltk"; "num";
-              "ocamlbuild"; "stdlib"; "str"; "camlp4" ] in
+              "ocamlbuild"; "stdlib"; "str" ] in
   List.fold_left (fun s e -> S.add e s) S.empty pkg
 
 module Opam = struct
