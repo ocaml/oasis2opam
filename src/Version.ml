@@ -41,7 +41,7 @@ module Set = struct
 end
 
 (* OASISVersion.string_of_comparator is unfortunately not good because
-   OPAM requires the versions be between quotes. *)
+   OPAM requires the versions be between quotes and use [&] and [|]. *)
 let rec string_of_comparator = function
   | VGreater v  -> "> \"" ^ string_of_version v ^ "\""
   | VEqual v    -> "= \"" ^ string_of_version v ^ "\""
@@ -50,9 +50,9 @@ let rec string_of_comparator = function
   | VLesserEqual v  -> "<= \"" ^ string_of_version v ^ "\""
   (* FIXME: does OPAM use parentheses to delimit clauses? *)
   | VOr (c1, c2)  ->
-     "(" ^ string_of_comparator c1 ^ ") || (" ^ string_of_comparator c2 ^ ")"
+     "(" ^ string_of_comparator c1 ^ ") | (" ^ string_of_comparator c2 ^ ")"
   | VAnd (c1, c2) ->
-     "(" ^ string_of_comparator c1 ^ ") && (" ^ string_of_comparator c2 ^ ")"
+     "(" ^ string_of_comparator c1 ^ ") & (" ^ string_of_comparator c2 ^ ")"
 
 
 (* Satisfy both (optional) version constrains. *)
