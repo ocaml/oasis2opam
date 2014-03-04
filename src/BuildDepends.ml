@@ -158,7 +158,10 @@ module Opam = struct
 
   (** Return the set of available versions for the OPAM package [pkg]
       or raise [Not_found]. *)
-  let package_versions pkg = M.find pkg packages
+  let package_versions_exn pkg = M.find pkg packages
+
+  let package_versions pkg =
+    try package_versions_exn pkg with Not_found -> Version.Set.empty
 
   (** Return the OPAM package(s) containing the findlib module.  See
       https://github.com/OCamlPro/opam/issues/573 *)
@@ -180,7 +183,7 @@ module Opam = struct
        (* FIXME: do we want to check that there is a version
           satisfying the possible version constraints? *)
        try
-         let v_set = package_versions lib in (* or raise Not_found *)
+         let v_set = package_versions_exn lib in (* or raise Not_found *)
          warn(sprintf "Guessing that OPAM package %S provides Findlib %S."
                       lib lib);
          [lib, v_set]
@@ -290,40 +293,51 @@ let get_findlib_libraries flags pkg =
    that the oasis versions and the OPAM ones coincide. *)
 let add_strings_of_package oasis_version (name, versions) l =
   let opam_versions = Opam.package_versions name in
-  let latest = Version.Set.max_elt opam_versions in
-  match oasis_version with
-  | None ->
-     if Version.Set.equal versions opam_versions
-        || Version.Set.is_empty versions then
-       (* All OPAM versions have the library (an empty set of versions
+  if Version.Set.is_empty opam_versions then (
+    (* The package does not exists in OPAM.  Maybe it was not yet
+       added.  Just add the name with the oasis constraint *)
+    let p = match oasis_version with
+      | None -> sprintf "%S" name
+      | Some v -> sprintf "%S {%s}" name (Version.string_of_comparator v) in
+    p :: l
+  )
+  else (
+    let latest = Version.Set.max_elt opam_versions in
+    match oasis_version with
+    | None ->
+       if Version.Set.equal versions opam_versions
+          || Version.Set.is_empty versions then
+         (* All OPAM versions have the library (an empty set of versions
           means anything is accepted).  One expects it will still be
           the case in the future. *)
-       sprintf "%S" name :: l
-     else
-       (* Only some OPAM versions have the lib.  If the [latest] is
+         sprintf "%S" name :: l
+       else
+         (* Only some OPAM versions have the lib.  If the [latest] is
           among them, then assume it will remain the case in the future. *)
-       let add v l =
-         let c = if OASISVersion.version_compare v latest = 0 then ">="
-                 else "=" in
-         sprintf "%S {%s %S}" name c (OASISVersion.string_of_version v) :: l in
-       Version.Set.fold add versions l
-  | Some oasis_version ->
-     (* Only keep the versions that satisfy the constraint. *)
-     let satisfy_constraint v =
-       OASISVersion.comparator_apply v oasis_version in
-     let good_versions = Version.Set.filter satisfy_constraint versions in
-     (* If the latest version is in the set providing the library,
+         let add v l =
+           let c = if OASISVersion.version_compare v latest = 0 then ">="
+                   else "=" in
+           sprintf "%S {%s %S}" name c (OASISVersion.string_of_version v)
+           :: l in
+         Version.Set.fold add versions l
+    | Some oasis_version ->
+       (* Only keep the versions that satisfy the constraint. *)
+       let satisfy_constraint v =
+         OASISVersion.comparator_apply v oasis_version in
+       let good_versions = Version.Set.filter satisfy_constraint versions in
+       (* If the latest version is in the set providing the library,
         then we assume that the [oasis_version] is the only constraint
         the author wants.  Otherwise, the package may have evolved and
         we only add the [good_versions]. *)
-     if Version.Set.mem latest good_versions
-        || Version.Set.is_empty versions then
-       sprintf "%S {%s}" name (Version.string_of_comparator oasis_version) :: l
-     else
-       let add v l =
-         sprintf "%S {= %S}" name (OASISVersion.string_of_version v) :: l in
-       Version.Set.fold add good_versions l
-
+       if Version.Set.mem latest good_versions
+          || Version.Set.is_empty versions then
+         sprintf "%S {%s}" name (Version.string_of_comparator oasis_version)
+         :: l
+       else
+         let add v l =
+           sprintf "%S {= %S}" name (OASISVersion.string_of_version v) :: l in
+         Version.Set.fold add good_versions l
+  )
 
 let strings_of_packages (pkgs, oasis_version) =
   List.fold_right (add_strings_of_package oasis_version) pkgs []
