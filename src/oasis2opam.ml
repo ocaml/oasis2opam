@@ -173,9 +173,16 @@ let opam_opam t flags =
   if List.exists (function Doc _ -> true | _  -> false) pkg.sections then
     Format.fprintf fmt "build-doc: [ \"ocaml\" \"setup.ml\" \"-doc\" ]@\n";
   BuildDepends.output t fmt flags;
-  (match pkg.ocaml_version with
-   | Some v -> Format.fprintf fmt "ocaml-version: [ %s ]@\n"
-                             (Version.string_of_comparator v)
+  (* OCaml version *)
+  let compiler_libs_version =
+    if BuildDepends.on_compiler_libs flags pkg then
+      Some(OASISVersion.comparator_of_string ">= 4.00.1")
+    else None in
+  (match Version.satisfy_both pkg.ocaml_version compiler_libs_version with
+   | Some v ->
+      let v = OASISVersion.comparator_reduce v in
+      Format.fprintf fmt "ocaml-version: [ %s ]@\n"
+                     (Version.string_of_comparator v)
    | None -> ());
   (* If an _opam file (say with "depexts") exists in the archive, append it. *)
   let opam = Tarball.opam t in

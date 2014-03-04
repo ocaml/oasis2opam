@@ -34,7 +34,7 @@ let opam_base_packages = [ "bigarray", "base-bigarray";
 (* Findlib libraries coming with OCaml — no OPAM package. *)
 let findlib_with_ocaml =
   let pkg = [ "camlp4"; "dynlink"; "graphics"; "labltk"; "num";
-              "ocamlbuild"; "stdlib"; "str" ] in
+              "ocamlbuild"; "stdlib"; "str"; "compiler-libs" ] in
   List.fold_left (fun s e -> S.add e s) S.empty pkg
 
 module Opam = struct
@@ -251,16 +251,27 @@ let merge_findlib_depends =
                     ~merge
                     d
 
-(* Findlib libraries on which pkg depends.  Sort them as compulsory
-   and optional. *)
-let get_findlib_dependencies flags pkg =
+let get_all_findlib_dependencies flags pkg =
   let deps = List.fold_left findlib_of_section [] pkg.sections in
   let deps = merge_findlib_depends deps in
+  (* Distinguish findlib packages that are going to be installed from
+     optional ones. *)
+  let deps_opt = List.partition (fun (_,_,c) -> c flags) deps in
+  deps_opt
+
+(** Tell whether "compiler-libs" is a mandatory dependency. *)
+let on_compiler_libs flags pkg =
+  let deps, _ = get_all_findlib_dependencies flags pkg in
+  List.exists (fun (lib,_,_) -> lib = "compiler-libs") deps
+
+(** [get_findlib_dependencies flags pkg] return the Findlib libraries
+    on which [pkg] depends.  Sort them as compulsory and optional. *)
+let does_not_come_with_OCaml (p,_,_) = not(S.mem p findlib_with_ocaml)
+let get_findlib_dependencies flags pkg =
+  let deps, opt = get_all_findlib_dependencies flags pkg in
   (* Filter out the packages coming with OCaml *)
-  let deps = List.filter (fun (p,_,_) -> not(S.mem p findlib_with_ocaml)) deps in
-  (* Only keep only installed packages. *)
-  let deps, opt = List.partition (fun (_,_,c) -> c flags) deps in
-  deps, opt
+  (List.filter does_not_come_with_OCaml deps,
+   List.filter does_not_come_with_OCaml opt)
 
 (* Findlib Libraries produced by this package. *)
 let get_findlib_libraries flags pkg =
