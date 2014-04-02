@@ -120,20 +120,15 @@ let output_paragraph fh ?(width=70) text =
        output_string fh w in
      List.iter output_word words
 
-let paragraph_delim = Str.regexp "[\n\r][ \t]*[\n\r][ \t\n\r]*"
-
 (* Assume that blanks lines delimit paragraphs (which we do not want
    to merge together). *)
-let output_wrapped fh ?width text =
-  let paragraphs = Str.split paragraph_delim text in
-  let rec output = function
-    | [] -> ()
-    | [p] -> output_paragraph fh ?width p
-    | p :: tl ->
-       output_paragraph fh ?width p;
-       output_string fh "\n\n";
-       output tl in
-  output paragraphs
+let output_wrapped fh ?width (text: OASISText.t) =
+  let open OASISText in
+  let output_elt = function
+    | Para p -> output_paragraph fh ?width p
+    | Verbatim s -> output_string fh s
+    | BlankLine -> output_string fh "\n\n" in
+  List.iter output_elt text
 
 (* Evaluate OASIS conditonals
  ***********************************************************************)
