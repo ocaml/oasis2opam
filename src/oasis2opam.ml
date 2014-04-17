@@ -180,7 +180,7 @@ let opam_opam t flags =
     else None in
   (match Version.satisfy_both pkg.ocaml_version compiler_libs_version with
    | Some v ->
-      let v = OASISVersion.comparator_reduce v in
+      let v = Version.comparator_reduce v in
       Format.fprintf fmt "ocaml-version: [ %s ]@\n"
                      (Version.string_of_comparator v)
    | None -> ());

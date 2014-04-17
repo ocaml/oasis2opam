@@ -62,3 +62,57 @@ let satisfy_both v1 v2 =
   | Some _, None -> v1
   | None, Some _ -> v2
   | Some v1, Some v2 -> Some(comparator_reduce (VAnd(v1, v2)))
+
+
+let max v1 v2 =
+  if OASISVersion.version_compare v1 v2 >= 0 then v1 else v2
+
+let min v1 v2 =
+  if OASISVersion.version_compare v1 v2 <= 0 then v1 else v2
+
+(* To be ported back to oasis eventually.
+   At least internally, one would benefit from true and false values. *)
+let rec comparator_reduce = function
+  | VAnd (v1, v2) ->
+     let v1 = comparator_reduce v1
+     and v2 = comparator_reduce v2 in
+     (match v1, v2 with
+      | VGreater v1, VGreater v2 -> VGreater(max v1 v2)
+      | VGreaterEqual v1, VGreaterEqual v2 -> VGreaterEqual(max v1 v2)
+      | VGreaterEqual v1, VGreater v2
+      | VGreater v2, VGreaterEqual v1 ->
+         if OASISVersion.version_compare v1 v2 > 0 then VGreaterEqual v1
+         else VGreater v2
+      | VLesser v1, VLesser v2 -> VLesser(min v1 v2)
+      | VLesserEqual v1, VLesserEqual v2 -> VLesserEqual(min v1 v2)
+      | VLesserEqual v1, VLesser v2
+      | VLesser v2, VLesserEqual v1 ->
+         if OASISVersion.version_compare v1 v2 < 0 then VLesserEqual v1
+         else VLesser v2
+      | (VEqual v1 as c1), c2
+      | c2, (VEqual v1 as c1) ->
+         if OASISVersion.comparator_apply v1 c2 then c1
+         else VAnd (c1, c2) (* v1 does not satisfy v2, always false *)
+      | _ -> VAnd (v1, v2))
+  | VOr (v1, v2) ->
+     let v1 = comparator_reduce v1
+     and v2 = comparator_reduce v2 in
+     (match v1, v2 with
+      | VGreater v1, VGreater v2 -> VGreater(min v1 v2)
+      | VGreaterEqual v1, VGreaterEqual v2 -> VGreaterEqual(min v1 v2)
+      | VGreaterEqual v1, VGreater v2
+      | VGreater v2, VGreaterEqual v1 ->
+         if OASISVersion.version_compare v1 v2 <= 0 then VGreaterEqual v1
+         else VGreater v2
+      | VLesser v1, VLesser v2 -> VLesser(max v1 v2)
+      | VLesserEqual v1, VLesserEqual v2 -> VLesserEqual(max v1 v2)
+      | VLesserEqual v1, VLesser v2
+      | VLesser v2, VLesserEqual v1 ->
+         if OASISVersion.version_compare v1 v2 >= 0 then VLesserEqual v1
+         else VLesser v2
+      | (VEqual v1 as c1), c2
+      | c2, (VEqual v1 as c1) ->
+         if OASISVersion.comparator_apply v1 c2 then c2
+         else VOr (c1, c2) (* v1 does not satisfy c2 *)
+      | _ -> VOr (v1, v2))
+  | cmp -> cmp
