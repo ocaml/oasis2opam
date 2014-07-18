@@ -164,7 +164,7 @@ module Opam = struct
     try package_versions_exn pkg with Not_found -> Version.Set.empty
 
   (** Return the OPAM package(s) containing the findlib module.  See
-      https://github.com/OCamlPro/opam/issues/573 *)
+      https://github.com/ocaml/opam/issues/573 *)
   let of_findlib lib =
     try M.find lib findlib (* <> [] *) with Not_found -> []
 
