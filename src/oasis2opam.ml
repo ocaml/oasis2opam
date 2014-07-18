@@ -267,4 +267,4 @@ let () =
   opam_url t;
   opam_opam t flags;
   opam_install t flags;
-  info (sprintf "OPAM package %S created." dir)
+  info (sprintf "OPAM directory %S created." dir)
