@@ -36,6 +36,7 @@ type t = {
   mutable opam: string option;
   mutable needs_oasis: bool option;
   mutable setup_ml_exists: bool option;
+  mutable pkg_opam_dir: string; (* = "" iff undetermined yet *)
 }
 
 let no_tarball t = t.tarball = ""
@@ -104,6 +105,7 @@ let t_of_tarball ~url tarball =
     opam = None;
     needs_oasis = None;
     setup_ml_exists = None;
+    pkg_opam_dir = "";
   }
 
 let get url =
@@ -202,7 +204,20 @@ let needs_oasis t =
 
 
 let pkg_opam_dir t =
-  if no_tarball t then "opam" (* local/devel mode *)
+  if t.pkg_opam_dir = "" then (
+    let d =
+      if no_tarball t then "opam" (* local/devel mode *)
+      else
+        let open OASISTypes in
+        let pkg = oasis t in
+        let d = pkg.name ^ "." ^ OASISVersion.string_of_version pkg.version in
+        if Sys.file_exists pkg.name then
+          (* The way packages are stored in the OPAM repository groups
+             the many versions of a package in a directory named [pkg.name]. *)
+          Filename.concat pkg.name d
+        else d in
+    t.pkg_opam_dir <- d;
+    d
+  )
   else
-    let pkg = oasis t in
-    pkg.name ^ "." ^ OASISVersion.string_of_version pkg.version
+    t.pkg_opam_dir
