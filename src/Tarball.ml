@@ -29,8 +29,8 @@ exception Program_not_found of string
    is only done once.  *)
 type t = {
   url: string;
-  tarball: string;
-  md5: string;
+  tarball: string; (* = "" iff the CWD is the root of the project *)
+  md5: string; (* = "" iff tarball = "" *)
   content: string list;
   mutable pkg: OASISTypes.package option;
   mutable opam: string option;
@@ -38,8 +38,10 @@ type t = {
   mutable setup_ml_exists: bool option;
 }
 
+let no_tarball t = t.tarball = ""
+
 let check_exists tarball =
-  if not(Sys.file_exists tarball) then
+  if tarball <> "" && not(Sys.file_exists tarball) then
     fatal_error(sprintf "The tarball %S does not exist" tarball)
 
 let md5 t = t.md5
@@ -95,8 +97,9 @@ let t_of_tarball ~url tarball =
   {
     url;
     tarball;
-    md5 = Digest.to_hex(Digest.file tarball);
-    content = tar ["--list"] tarball;
+    md5 = if tarball = "" then "" else Digest.to_hex(Digest.file tarball);
+    content = if tarball = "" then Utils.ls_rec "."
+              else tar ["--list"] tarball;
     pkg = None;
     opam = None;
     needs_oasis = None;
@@ -135,8 +138,11 @@ let get url =
    if it does not exist. *)
 let get_file t re =
   let path = List.find (fun s -> Str.string_match re s 0) t.content in
-  let file_content = tar ["--to-stdout"; "--extract"; path] t.tarball in
-  String.concat "\n" file_content
+  if no_tarball t then
+    read_whole_file path
+  else
+    let file_content = tar ["--to-stdout"; "--extract"; path] t.tarball in
+    String.concat "\n" file_content
 
 
 let oasis_re = Str.regexp "\\(.*/\\|\\)_oasis$"
@@ -193,3 +199,10 @@ let needs_oasis t =
        ) in
      t.needs_oasis <- Some need;
      need
+
+
+let pkg_opam_dir t =
+  if no_tarball t then "opam" (* local/devel mode *)
+  else
+    let pkg = oasis t in
+    pkg.name ^ "." ^ OASISVersion.string_of_version pkg.version

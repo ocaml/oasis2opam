@@ -28,7 +28,7 @@ open Utils
  ***********************************************************************)
 let opam_descr t =
   let pkg = Tarball.oasis t in
-  let fh = open_out(Filename.concat (opam_dir pkg) "descr") in
+  let fh = open_out(Filename.concat (Tarball.pkg_opam_dir t) "descr") in
   output_string fh pkg.synopsis;
   output_char fh '\n';
   (match pkg.description with
@@ -37,8 +37,7 @@ let opam_descr t =
   close_out fh
 
 let opam_url t =
-  let pkg = Tarball.oasis t in
-  let fh = open_out(Filename.concat (opam_dir pkg) "url") in
+  let fh = open_out(Filename.concat (Tarball.pkg_opam_dir t) "url") in
   fprintf fh "archive: %S\nchecksum: %S\n" (Tarball.url t) (Tarball.md5 t);
   close_out fh
 
@@ -158,7 +157,7 @@ let output_build_install t fmt flags =
 
 let opam_opam t flags =
   let pkg = Tarball.oasis t in
-  let fh = open_out(Filename.concat (opam_dir pkg) "opam") in
+  let fh = open_out(Filename.concat (Tarball.pkg_opam_dir t) "opam") in
   let fmt = Format.formatter_of_out_channel fh in
   Format.fprintf fmt "opam-version: \"1\"@\n";
   (* "name:" and "version:" deemed unnecessary. *)
@@ -213,7 +212,7 @@ let opam_install t flags =
   let bins = List.fold_left gather_exec [] pkg.sections in
 
   if bins <> [] then (
-    let dir = Filename.concat (opam_dir pkg) "files" in
+    let dir = Filename.concat (Tarball.pkg_opam_dir t) "files" in
     (try Unix.mkdir dir 0o777 with Unix.Unix_error (Unix.EEXIST, _, _) -> ());
     let fh = open_out(Filename.concat dir (pkg.name ^ ".install")) in
 
@@ -232,13 +231,16 @@ let opam_install t flags =
 
 
 let () =
+  let local = ref false in
   let version = ref false in
   let duplicates = ref false in
   let specs = [
+    "--local", Arg.Set local,
+    " create an opam dir for the _oasis in the current dir";
     "--duplicates", Arg.Set duplicates,
     " output a list of packages providing the same ocamlfind library";
     "--version", Arg.Set version,
-    " print the oasis2opam version (including the Git hash if relevant)";
+    " print the oasis2opam version";
   ] in
   let url = ref "" in
   let specs = Arg.align(specs @ fst (OASISContext.fspecs ())) in
@@ -253,12 +255,13 @@ let () =
     BuildDepends.output_duplicates stdout;
     exit 0;
   );
-  if !url = "" then (Arg.usage specs usage_msg; exit 1);
+  if !url = "" && not !local then (Arg.usage specs usage_msg; exit 1);
+  (* Thus [!url = ""] iff !local, from now on. *)
 
   let t = Tarball.get !url in
   let pkg = Tarball.oasis t in
   let flags = get_flags pkg.sections in
-  let dir = opam_dir pkg in
+  let dir = Tarball.pkg_opam_dir t in
   (try Unix.mkdir dir 0o777 with Unix.Unix_error (Unix.EEXIST, _, _) -> ());
   opam_descr t;
   opam_url t;

@@ -35,9 +35,18 @@ let error s = (!OASISContext.default).OASISContext.printf `Error s
 let fatal_error s = error s; exit 1
 let debug s = (!OASISContext.default).OASISContext.printf `Debug s
 
-(* Directory name that OPAM expects for a package. *)
-let opam_dir pkg =
-  pkg.name ^ "." ^ OASISVersion.string_of_version pkg.version
+
+let concat_map l f =
+  (* FIXME: a more efficient implementation may be desirable *)
+  List.concat (List.map f l)
+
+let rec ls_rec d =
+  if Sys.is_directory d then (
+    let fn = if d = "." then Sys.readdir d
+             else Array.map (Filename.concat d) (Sys.readdir d) in
+    concat_map (Array.to_list fn) ls_rec
+  )
+  else [d]
 
 let rm_no_error fname =
   (try Unix.unlink fname with _ -> ())
