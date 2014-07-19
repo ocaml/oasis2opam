@@ -95,12 +95,18 @@ let download ?(retry=2) url =
 
 let t_of_tarball ~url tarball =
   check_exists tarball;
+  let content =
+    if tarball = "" then
+      (* All files one tries to get must be at the root of the
+         project.  Do not recurse for the contents *)
+      let fn = Array.to_list (Sys.readdir ".") in
+      List.filter (fun f -> not(Sys.is_directory f)) fn
+    else tar ["--list"] tarball in
   {
     url;
     tarball;
     md5 = if tarball = "" then "" else Digest.to_hex(Digest.file tarball);
-    content = if tarball = "" then Utils.ls_rec "."
-              else tar ["--list"] tarball;
+    content;
     pkg = None;
     opam = None;
     needs_oasis = None;
