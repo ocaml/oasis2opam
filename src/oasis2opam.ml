@@ -37,9 +37,13 @@ let opam_descr t =
   close_out fh
 
 let opam_url t =
-  let fh = open_out(Filename.concat (Tarball.pkg_opam_dir t) "url") in
-  fprintf fh "archive: %S\nchecksum: %S\n" (Tarball.url t) (Tarball.md5 t);
-  close_out fh
+  let url = Tarball.url t
+  and md5 = Tarball.md5 t in
+  if url <> "" || md5 <> "" then (
+    let fh = open_out(Filename.concat (Tarball.pkg_opam_dir t) "url") in
+    fprintf fh "archive: %S\nchecksum: %S\n" url md5;
+    close_out fh
+  )
 
 (* Write OPAM "opam" file.
  ***********************************************************************)
