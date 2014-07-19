@@ -266,7 +266,11 @@ let () =
   let pkg = Tarball.oasis t in
   let flags = get_flags pkg.sections in
   let dir = Tarball.pkg_opam_dir t in
-  (try Unix.mkdir dir 0o777 with Unix.Unix_error (Unix.EEXIST, _, _) -> ());
+  (try Unix.mkdir dir 0o777
+   with Unix.Unix_error (Unix.EEXIST, _, _) ->
+        if !local && not(y_or_n "The existing opam dir is going to be \
+                                overwritten. Continue?") then
+          exit 0);
   opam_descr t;
   opam_url t;
   opam_opam t flags;

@@ -163,4 +163,22 @@ let eval_conditional flags cond =
     with Not_found -> "false" in
   OASISExpr.choose eval_tst cond
 
+
+(* Yes/No question
+ ***********************************************************************)
+
+let y_or_n q =
+  let continue = ref true in (* enter the loop *)
+  let r = ref false in
+  while !continue do
+    printf "%s [y/N] %!" q;
+    let c = String.trim(read_line()) in
+    if c = "y" || c = "Y" then (continue := false;  r := true)
+    else if c = "n" || c = "N" || c = "" then (continue := false;  r := false)
+    else
+      printf "Please answer 'Y' or 'N'.\n%!"
+  done;
+  !r
+
+
 ;;
