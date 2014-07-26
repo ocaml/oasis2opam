@@ -181,7 +181,8 @@ let opam t =
 
 let setup_re = Str.regexp "\\(.*/\\|\\)setup\\.ml"
 let newline_re = Str.regexp "[\n\r]+"
-let dynamic_re = Str.regexp "^#require \"oasis.dynrun\""
+let dynamic_re =
+  Str.regexp "^\\(#require +\"oasis.dynrun\"\\|open *OASISDynRun\\)"
 
 let setup_ml_exists t =
   match t.setup_ml_exists with
