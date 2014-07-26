@@ -376,7 +376,8 @@ let output t fmt flags =
   let pkgs = List.map (fun (l,v,_) -> (Opam.of_findlib_warn l, v)) deps in
   let pkgs = (["ocamlfind", Version.Set.empty], pkg.findlib_version) :: pkgs in
   let pkgs = if Tarball.needs_oasis t then
-               (Opam.of_findlib "oasis", None) :: pkgs
+               let v = OASISVersion.VGreaterEqual pkg.oasis_version in
+               (Opam.of_findlib "oasis", Some v) :: pkgs
              else pkgs in
   let pkgs = make_unique ~cmp:(fun (p1,_) (p2, _) -> Opam.compare_pkgs p1 p2)
                          ~merge:merge_pkgs
