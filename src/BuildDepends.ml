@@ -344,6 +344,12 @@ let add_strings_of_package oasis_version (name, versions) l =
           || Version.Set.is_empty versions then
          sprintf "%S {%s}" name (Version.string_of_comparator oasis_version)
          :: l
+       else if Version.Set.is_empty good_versions then (
+         warn(sprintf "No OPAM version found for %S! Using findlib \
+                       constraints." name);
+         sprintf "%S {%s}" name (Version.string_of_comparator oasis_version)
+         :: l
+       )
        else
          let add v l =
            sprintf "%S {= %S}" name (OASISVersion.string_of_version v) :: l in
