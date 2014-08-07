@@ -42,7 +42,7 @@ end
 
 (* OASISVersion.string_of_comparator is unfortunately not good because
    OPAM requires the versions be between quotes and use [&] and [|]. *)
-let rec string_of_comparator = function
+let rec opam_string_of_comparator = function
   | VGreater v  -> "> \"" ^ string_of_version v ^ "\""
   | VEqual v    -> "= \"" ^ string_of_version v ^ "\""
   | VLesser v   -> "< \"" ^ string_of_version v ^ "\""
@@ -50,10 +50,11 @@ let rec string_of_comparator = function
   | VLesserEqual v  -> "<= \"" ^ string_of_version v ^ "\""
   (* FIXME: does OPAM use parentheses to delimit clauses? *)
   | VOr (c1, c2)  ->
-     "(" ^ string_of_comparator c1 ^ ") | (" ^ string_of_comparator c2 ^ ")"
+     "(" ^ opam_string_of_comparator c1
+     ^ ") | (" ^ opam_string_of_comparator c2 ^ ")"
   | VAnd (c1, c2) ->
-     "(" ^ string_of_comparator c1 ^ ") & (" ^ string_of_comparator c2 ^ ")"
-
+     "(" ^ opam_string_of_comparator c1
+     ^ ") & (" ^ opam_string_of_comparator c2 ^ ")"
 
 (* Satisfy both (optional) version constrains. *)
 let satisfy_both v1 v2 =
@@ -116,3 +117,8 @@ let rec comparator_reduce = function
          else VOr (c1, c2) (* v1 does not satisfy c2 *)
       | _ -> VOr (v1, v2))
   | cmp -> cmp
+
+let string_of_comparator v =
+  (* If one wants to print the constraints, a short form is always
+     desirable. *)
+  opam_string_of_comparator(comparator_reduce v)
