@@ -163,9 +163,10 @@ module Opam = struct
   let package_versions pkg =
     try package_versions_exn pkg with Not_found -> Version.Set.empty
 
-  (** Return the OPAM package(s) containing the findlib module.  See
-      https://github.com/ocaml/opam/issues/573 *)
-  let of_findlib lib =
+  (** Return the OPAM package(s) (with their OPAM versions) containing
+      the findlib library [lib].
+      See https://github.com/ocaml/opam/issues/573 *)
+  let of_findlib (lib: string) =
     try M.find lib findlib (* <> [] *) with Not_found -> []
 
   let to_string (p, v) =
@@ -298,66 +299,73 @@ let get_findlib_libraries flags pkg =
 (* Format OPAM output
  ***********************************************************************)
 
-(* Add to [l] a list of string representing the package [name] — of
-   which the [versions] provide a library — with possible version
-   constraints if not all package versions are present.  It is assumed
-   that the oasis versions and the OPAM ones coincide. *)
-let add_strings_of_package oasis_version (name, versions) l =
+type suitable_opam =
+  | Only_findlib (* No OPAM package satisfying the constraints was found *)
+  | Opam (* Suitable OPAM packages were found *)
+
+(* Add to [l] the packages [name] with possible version constraints if
+   not all package versions are present.  It is assumed that the oasis
+   versions and the OPAM ones coincide. *)
+let add_suitable_pakages pkg_oasis_version (name, versions) l =
   let opam_versions = Opam.package_versions name in
-  if Version.Set.is_empty opam_versions then (
+  if Version.Set.is_empty opam_versions then
     (* The package does not exists in OPAM.  Maybe it was not yet
        added.  Just add the name with the oasis constraint *)
-    let p = match oasis_version with
-      | None -> sprintf "%S" name
-      | Some v -> sprintf "%S {%s}" name (Version.string_of_comparator v) in
-    p :: l
-  )
+    (Only_findlib, name, pkg_oasis_version) :: l
   else (
     let latest = Version.Set.max_elt opam_versions in
-    match oasis_version with
+    match pkg_oasis_version with
     | None ->
        if Version.Set.equal versions opam_versions
           || Version.Set.is_empty versions then
          (* All OPAM versions have the library (an empty set of versions
-          means anything is accepted).  One expects it will still be
-          the case in the future. *)
-         sprintf "%S" name :: l
+            means anything is accepted).  One expects it will still be
+            the case in the future, so no version constraint. *)
+         (Opam, name, None) :: l
        else
          (* Only some OPAM versions have the lib.  If the [latest] is
-          among them, then assume it will remain the case in the future. *)
+            among them, then assume it will remain the case in the future. *)
          let add v l =
-           let c = if OASISVersion.version_compare v latest = 0 then ">="
-                   else "=" in
-           sprintf "%S {%s %S}" name c (OASISVersion.string_of_version v)
-           :: l in
+           let open OASISVersion in
+           let c = if version_compare v latest = 0 then VGreaterEqual v
+                   else VEqual v in
+           (Opam, name, Some c) :: l in
          Version.Set.fold add versions l
-    | Some oasis_version ->
+    | Some pkg_oasis_version ->
        (* Only keep the versions that satisfy the constraint. *)
        let satisfy_constraint v =
-         OASISVersion.comparator_apply v oasis_version in
+         OASISVersion.comparator_apply v pkg_oasis_version in
        let good_versions = Version.Set.filter satisfy_constraint versions in
-       (* If the latest version is in the set providing the library,
-        then we assume that the [oasis_version] is the only constraint
-        the author wants.  Otherwise, the package may have evolved and
-        we only add the [good_versions]. *)
+       (* If the latest version is in the set providing the library, then
+          we assume that the [pkg_oasis_version] is the only constraint
+          the author wants.  Otherwise, the package may have evolved
+          and we only add the [good_versions]. *)
        if Version.Set.mem latest good_versions
           || Version.Set.is_empty versions then
-         sprintf "%S {%s}" name (Version.string_of_comparator oasis_version)
-         :: l
-       else if Version.Set.is_empty good_versions then (
-         warn(sprintf "No OPAM version found for %S! Using findlib \
-                       constraints." name);
-         sprintf "%S {%s}" name (Version.string_of_comparator oasis_version)
-         :: l
-       )
+         (Opam, name, Some pkg_oasis_version) :: l
+       else if Version.Set.is_empty good_versions then
+         (Only_findlib, name, Some pkg_oasis_version) :: l
        else
-         let add v l =
-           sprintf "%S {= %S}" name (OASISVersion.string_of_version v) :: l in
+         let add v l = (Opam, name, Some(OASISVersion.VEqual v)) :: l in
          Version.Set.fold add good_versions l
   )
 
-let strings_of_packages (pkgs, oasis_version) =
-  List.fold_right (add_strings_of_package oasis_version) pkgs []
+
+(* [pkgs] are all the OPAM packages and versions providing a given
+   findlib library. *)
+let strings_of_packages (pkgs, pkg_oasis_version) =
+  let p = List.fold_right (add_suitable_pakages pkg_oasis_version) pkgs [] in
+  let p =
+    if List.for_all (fun (d,_,_) -> d = Only_findlib) p then p
+    else
+      (* Suitable OPAM packages, remove the ones guessed from findlib. *)
+      List.filter (fun (d,_,_) -> d <> Only_findlib) p in
+  let to_string (_, name, version_cmp) =
+    match version_cmp with
+    | None -> sprintf "%S" name
+    | Some v -> sprintf "%S {%s}" name (Version.string_of_comparator v) in
+  List.map to_string p
+
 
 let string_of_packages pkgs_version =
   match strings_of_packages pkgs_version with
