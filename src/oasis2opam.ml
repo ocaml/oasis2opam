@@ -155,7 +155,10 @@ let output_build_install t fmt flags =
     Format.fprintf fmt "@[<2>remove: [";
     List.iter (fun l -> Format.fprintf fmt "@\n[\"ocamlfind\" \"remove\" %S]" l
               ) libs;
-    Format.fprintf fmt "@]@\n]@\n"
+    Format.fprintf fmt "@]@\n]@\n";
+    Format.fprintf fmt "@[<2>libraries: [";
+    List.iter (fun l -> Format.fprintf fmt "@\n%S" l) libs;
+    Format.fprintf fmt "@]@\n]@\n";
   )
 
 
