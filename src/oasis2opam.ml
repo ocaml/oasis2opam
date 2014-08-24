@@ -176,6 +176,14 @@ let opam_opam t flags =
   (match pkg.homepage with
    | Some url -> Format.fprintf fmt "homepage: %S@\n" url
    | None -> warn "Consider adding \"Homepage:\" to your _oasis file");
+  (* Source repository *)
+  let get_source_repository = function
+    | SrcRepo (_, src) -> Some src
+    | _ -> None in
+  (match Utils.map_find pkg.sections get_source_repository with
+   | Some src ->
+      Format.fprintf fmt "dev-repo: %S@\n" src.src_repo_location
+   | None -> ());
   output_tags fmt pkg;
   output_build_install t fmt flags;
   if List.exists (function Doc _ -> true | _  -> false) pkg.sections then

@@ -40,6 +40,13 @@ let concat_map l f =
   (* FIXME: a more efficient implementation may be desirable *)
   List.concat (List.map f l)
 
+let rec map_find l f =
+  match l with
+  | [] -> None
+  | x :: tl -> match f x with
+              | (Some _ as x') -> x'
+              | None -> map_find tl f
+
 let rec ls_rec d =
   if Sys.is_directory d then (
     let fn = if d = "." then Sys.readdir d
