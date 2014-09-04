@@ -140,6 +140,12 @@ module Opam = struct
       m := M.add "findlib" [("ocamlfind", Version.Set.empty)] !m;
       List.iter (fun (fl, p) -> m := M.add fl [(p, Version.Set.empty)] !m)
                 opam_base_packages;
+      (* Camlp4 was split out of the standard distribution.  A dummy
+         OPAM package was created for older compilers (thus one can
+         consider that all versions of the OPAM "camlp4" package have
+         the lib even though it is not detected automatically). *)
+      let opam_camlp4 = ("camlp4", M.find "camlp4" !pkgs) in
+      m := M.add "camlp4" (opam_camlp4 :: M.find "camlp4" !m) !m;
       let m = M.map (fun pkgs -> merge_versions pkgs) !m in
       (* Cache *)
       let to_cache = (m, !pkgs) in
