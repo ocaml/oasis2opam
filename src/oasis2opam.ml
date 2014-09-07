@@ -24,6 +24,10 @@ open Printf
 open OASISTypes
 open Utils
 
+(* Important OPAM versions to compare to. *)
+let v1_2 = OASISVersion.version_of_string "1.2"
+
+
 (* Write OPAM "descr" & "url" files.
  ***********************************************************************)
 let opam_descr t =
@@ -127,7 +131,7 @@ let opam_for_flags flags =
        (n, pkgs) :: l in
   M.fold add_findlib flags []
 
-let output_build_install t fmt flags =
+let output_build_install t fmt flags opam_file_version =
   let pkg = Tarball.oasis t in
   Format.fprintf fmt "@[<2>build: [@\n";
   if not(Tarball.setup_ml_exists t) then
@@ -156,25 +160,32 @@ let output_build_install t fmt flags =
     List.iter (fun l -> Format.fprintf fmt "@\n[\"ocamlfind\" \"remove\" %S]" l
               ) libs;
     Format.fprintf fmt "@]@\n]@\n";
-    Format.fprintf fmt "@[<2>libraries: [";
-    List.iter (fun l -> Format.fprintf fmt "@\n%S" l) libs;
-    Format.fprintf fmt "@]@\n]@\n";
+    if OASISVersion.version_compare opam_file_version v1_2 > 0 then (
+      Format.fprintf fmt "@[<2>libraries: [";
+      List.iter (fun l -> Format.fprintf fmt "@\n%S" l) libs;
+      Format.fprintf fmt "@]@\n]@\n";
+    );
   )
 
 
-let opam_opam t flags =
+let opam_opam t flags opam_file_version =
   let pkg = Tarball.oasis t in
   let fh = open_out(Filename.concat (Tarball.pkg_opam_dir t) "opam") in
   let fmt = Format.formatter_of_out_channel fh in
-  Format.fprintf fmt "opam-version: \"1\"@\n";
+  Format.fprintf fmt "opam-version: \"%s\"@\n"
+                 (OASISVersion.string_of_version opam_file_version);
   Format.fprintf fmt "name: \"%s\"@\n" pkg.name;
   Format.fprintf fmt "version: \"%s\"@\n"
                  (OASISVersion.string_of_version pkg.version);
   output_maintainer fmt pkg;
   output_authors fmt pkg;
-  Format.fprintf fmt "license: %S@\n" (OASISLicense.to_string pkg.license);
+  let prefix =
+    if OASISVersion.version_compare opam_file_version v1_2 < 0 then "# "
+    else "" in
+  Format.fprintf fmt "%slicense: %S@\n"
+                 prefix (OASISLicense.to_string pkg.license);
   (match pkg.homepage with
-   | Some url -> Format.fprintf fmt "homepage: %S@\n" url
+   | Some url -> Format.fprintf fmt "%shomepage: %S@\n" prefix url
    | None -> warn "Consider adding \"Homepage:\" to your _oasis file");
   (* Source repository *)
   let get_source_repository = function
@@ -182,10 +193,10 @@ let opam_opam t flags =
     | _ -> None in
   (match Utils.map_find pkg.sections get_source_repository with
    | Some src ->
-      Format.fprintf fmt "dev-repo: %S@\n" src.src_repo_location
+      Format.fprintf fmt "%sdev-repo: %S@\n" prefix src.src_repo_location
    | None -> ());
   output_tags fmt pkg;
-  output_build_install t fmt flags;
+  output_build_install t fmt flags opam_file_version;
   if List.exists (function Doc _ -> true | _  -> false) pkg.sections then
     Format.fprintf fmt "build-doc: [ \"ocaml\" \"setup.ml\" \"-doc\" ]@\n";
   BuildDepends.output t fmt flags;
@@ -251,6 +262,7 @@ let () =
   let local = ref false in
   let version = ref false in
   let duplicates = ref false in
+  let opam_file_version = ref "1.2" in
   let specs = [
     "--local", Arg.Set local,
     " create an opam dir for the _oasis in the current dir";
@@ -258,6 +270,8 @@ let () =
     " output a list of packages providing the same ocamlfind library";
     "--version", Arg.Set version,
     " print the oasis2opam version";
+    "--opam1", Arg.Unit(fun () -> opam_file_version := "1"),
+    " use format 1 for the file \"opam\"";
   ] in
   let url = ref "" in
   let specs = Arg.align(specs @ fst (OASISContext.fspecs ())) in
@@ -275,6 +289,7 @@ let () =
   if !url = "" && not !local then (Arg.usage specs usage_msg; exit 1);
   (* Thus [!url = ""] iff !local, from now on. *)
 
+  let opam_file_version = OASISVersion.version_of_string !opam_file_version in
   let t = Tarball.get !url in
   let pkg = Tarball.oasis t in
   let flags = get_flags pkg.sections in
@@ -286,6 +301,6 @@ let () =
           exit 0);
   opam_descr t;
   opam_url t;
-  opam_opam t flags;
+  opam_opam t flags opam_file_version;
   opam_install t flags;
   info (sprintf "OPAM directory %S created." dir)
