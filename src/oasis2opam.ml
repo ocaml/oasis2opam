@@ -220,6 +220,15 @@ let opam_opam t flags opam_file_version =
   Format.pp_print_flush fmt ();
   close_out fh
 
+let opam_findlib t flags =
+  let pkg = Tarball.oasis t in
+  let libs = BuildDepends.get_findlib_libraries flags pkg in
+  if libs <> [] then (
+    let fh = open_out(Filename.concat (Tarball.pkg_opam_dir t) "findlib") in
+    (* One findlib package per line *)
+    List.iter (fun l -> output_string fh l; output_char fh '\n') libs;
+    close_out fh
+  )
 
 let opam_install t flags =
   let pkg = Tarball.oasis t in
@@ -302,5 +311,6 @@ let () =
   opam_descr t;
   opam_url t;
   opam_opam t flags opam_file_version;
+  opam_findlib t flags;
   opam_install t flags;
   info (sprintf "OPAM directory %S created." dir)
