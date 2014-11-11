@@ -271,17 +271,20 @@ let () =
   let local = ref false in
   let version = ref false in
   let duplicates = ref false in
+  let query_findlib = ref "" in
   let opam_file_version = ref "1.2" in
   let specs = [
     "--local", Arg.Set local,
     " create an opam dir for the _oasis in the current dir";
     "--duplicates", Arg.Set duplicates,
     " output a list of packages providing the same ocamlfind library";
+    "--query", Arg.Set_string query_findlib,
+    "LIB return the list of OPAM packages providing LIB";
     "--version", Arg.Set version,
     " print the oasis2opam version";
     "--opam1", Arg.Unit(fun () -> opam_file_version := "1"),
     " use format 1 for the file \"opam\"";
-  ] in
+    ] in
   let url = ref "" in
   let specs = Arg.align(specs @ fst (OASISContext.fspecs ())) in
   let usage_msg = "oasis2opam <url or tarball>" in
@@ -293,6 +296,13 @@ let () =
   );
   if !duplicates then (
     BuildDepends.output_duplicates stdout;
+    exit 0;
+  );
+  if !query_findlib <> "" then (
+    (match BuildDepends.Opam.of_findlib !query_findlib with
+     | [] -> printf "%S is NOT provided by an OPAM package.\n" !query_findlib
+     | pkgs -> printf "%S is provided by: %s\n" !query_findlib
+                     (BuildDepends.string_of_packages (pkgs, None)));
     exit 0;
   );
   if !url = "" && not !local then (Arg.usage specs usage_msg; exit 1);
