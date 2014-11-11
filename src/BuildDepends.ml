@@ -28,6 +28,7 @@ module S = Set.Make(String)
 
 (* Findlib libraries and their corresponding virtual base OPAM package. *)
 let opam_base_packages = [ "bigarray", "base-bigarray";
+                           "bytes", "base-bytes";
                            "threads", "base-threads";
                            "unix", "base-unix" ]
 
@@ -36,6 +37,9 @@ let findlib_with_ocaml =
   let pkg = [ "dynlink"; "graphics"; "labltk"; "num";
               "ocamlbuild"; "stdlib"; "str"; "compiler-libs" ] in
   List.fold_left (fun s e -> S.add e s) S.empty pkg
+
+let findlib_for_bytes =
+  Some(OASISVersion.(VGreaterEqual(version_of_string "1.5")))
 
 module Opam = struct
 
@@ -394,7 +398,11 @@ let output t fmt flags =
 
   (* Required dependencies. *)
   let pkgs = List.map (fun (l,v,_) -> (Opam.of_findlib_warn l, v)) deps in
-  let pkgs = (["ocamlfind", Version.Set.empty], pkg.findlib_version) :: pkgs in
+  let pkgs =
+    let v = if List.exists (fun (l,_,_) -> l = "bytes") deps then
+              Version.satisfy_both pkg.findlib_version findlib_for_bytes
+            else pkg.findlib_version in
+    (["ocamlfind", Version.Set.empty], v) :: pkgs in
   let pkgs = if Tarball.needs_oasis t then
                let v = OASISVersion.VGreaterEqual pkg.oasis_version in
                (Opam.of_findlib "oasis", Some v) :: pkgs
