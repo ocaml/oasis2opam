@@ -170,7 +170,7 @@ let oasis t =
 
 let opam_re = Str.regexp "\\(.*/\\|\\)_opam$"
 
-let opam t =
+let opam_file t =
   match t.opam with
   | Some o -> o
   | None ->
@@ -178,6 +178,21 @@ let opam t =
      let opam = try get_file t opam_re with Not_found -> "" in
      t.opam <- Some opam;
      opam
+
+
+let depends_re =
+  Str.regexp "depends:[ \t\n\r]*\\[\\([^][]*\\)[ \t\n\r]*\\][ \t\n\r]*"
+
+let opam_depends t =
+  let s = opam_file t in
+  try
+    ignore(Str.search_forward depends_re s 0);
+    String.trim(Str.matched_group 1 s)
+  with Not_found -> ""
+
+let opam t =
+  let s = opam_file t in
+  Str.global_replace depends_re "" s
 
 let setup_re = Str.regexp "\\(.*/\\|\\)setup\\.ml"
 let newline_re = Str.regexp "[\n\r]+"

@@ -32,9 +32,14 @@ val needs_oasis : t -> bool
 val setup_ml_exists : t -> bool
 (** Whether a file "setup.ml" exists in the tarball. *)
 
+val opam_depends : t -> string
+(** Return the content of the depends section in the _opam file (or
+    [""] if no such section or no such file exists). *)
+
 val opam : t -> string
-(** Return the content of the _opam file in the tarball (or [""] if
-    no such file exists). *)
+(** Return the content of the _opam file in the tarball where the
+    sections matched by the above [opam_*] functions have been
+    filtered out (or [""] if no such file exists). *)
 
 val pkg_opam_dir : t -> string
 (** Returns the name of the directory in which the OPAM files for the

@@ -424,6 +424,10 @@ let output t fmt flags =
                          pkgs in
   Format.fprintf fmt "@[<2>depends: [";
   List.iter (fun p -> Format.fprintf fmt "@\n%s" (string_of_packages p)) pkgs;
+  let opam_depends = Tarball.opam_depends t in
+  if opam_depends <> "" then (
+    Format.fprintf fmt "@\n# Included from _opam file@\n%s" opam_depends
+  );
   Format.fprintf fmt "@]@\n]@\n";
   if opt <> [] then (
     (* Optional packages are a simple "or-formula".  Gather all packages
