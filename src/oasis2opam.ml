@@ -306,7 +306,7 @@ let () =
   (try Unix.mkdir dir 0o777
    with Unix.Unix_error (Unix.EEXIST, _, _) ->
         if !local && not(y_or_n "The existing opam dir is going to be \
-                                overwritten. Continue?") then
+                                overwritten. Continue?" ~default:true) then
           exit 0);
   opam_descr t;
   opam_url t;
