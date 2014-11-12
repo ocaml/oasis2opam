@@ -1,7 +1,7 @@
 #								-*-conf-*-
 OASISFormat: 0.3
 Name:        oasis2opam
-Version:     0.4.5
+Version:     0.5.0
 Synopsis:    Tool to convert OASIS metadata to OPAM package descriptions
 Description: Generate OPAM files from _oasis.  Most of the metadata
   supported by oasis is translated to OPAM.  A simple .install file is
