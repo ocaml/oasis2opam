@@ -25,6 +25,30 @@ open OASISTypes
 
 module M = Map.Make(String)
 
+(* Compatibility with OCaml 3.12 *)
+module String = struct
+  include String
+
+  let is_space = function
+    | ' ' | '\012' | '\n' | '\r' | '\t' -> true
+    | _ -> false
+
+  let trim s =
+    let len = String.length s in
+    let i = ref 0 in
+    while !i < len && is_space (String.unsafe_get s !i) do
+      incr i
+    done;
+    let j = ref (len - 1) in
+    while !j >= !i && is_space (String.unsafe_get s !j) do
+      decr j
+    done;
+    if !j >= !i then
+      String.sub s !i (!j - !i + 1)
+    else
+      ""
+end
+
 let () =
   let open OASISContext in
   default := { !default with ignore_plugins = true }
