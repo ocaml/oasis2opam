@@ -59,7 +59,7 @@ let rec get_first_email = function
   | [] -> None
   | name :: tl ->
      try ignore(Str.search_forward email_re name 0);
-         Some(Str.matched_string name)
+         Some(name)
      with Not_found -> get_first_email tl
 
 let output_maintainer fmt pkg =
