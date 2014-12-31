@@ -107,6 +107,7 @@ module Opam = struct
        type may change). *)
     if m_cache < Conf.compilation_time || m_cache < m_state then (
       (* Need to browse the opam dir again. *)
+      eprintf "Synchronizing the list of available packages... %!";
       let m = ref M.empty in
       let pkgs = ref M.empty in
       let rec add_of_dir dir =
@@ -168,6 +169,7 @@ module Opam = struct
       let fh = open_out_bin cache in
       output_value fh to_cache;
       close_out fh;
+      eprintf "done.\n%!";
       to_cache
     )
     else (
