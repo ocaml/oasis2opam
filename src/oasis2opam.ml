@@ -273,6 +273,7 @@ let opam_install t flags =
 
 
 let () =
+  OASISBuiltinPlugins.init ();
   let local = ref false in
   let version = ref false in
   let duplicates = ref false in
