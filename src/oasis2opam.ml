@@ -66,10 +66,10 @@ let output_maintainer fmt pkg =
   if pkg.maintainers = [] then
     warn "Consider adding \"Maintainers:\" to your _oasis file.";
   match get_first_email pkg.maintainers with
-  | Some e -> Format.fprintf fmt "maintainer: %S@\n" e
+  | Some e -> Format.fprintf fmt "maintainer: \"%s\"@\n" (Utils.escaped e)
   | None ->
      match get_first_email pkg.authors with
-     | Some e -> Format.fprintf fmt "maintainer: %S@\n" e
+     | Some e -> Format.fprintf fmt "maintainer: \"%s\"@\n" (Utils.escaped e)
      | None ->
         error "Give an email in oasis \"Maintainers:\" or \
                \"Authors:\" fields (preferably the former).";
