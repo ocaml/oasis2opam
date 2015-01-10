@@ -165,8 +165,8 @@ let output_paragraph fh ?(width=70) text =
 let output_wrapped fh ?width (text: OASISText.t) =
   let open OASISText in
   let output_elt = function
-    | Para p -> output_paragraph fh ?width p
-    | Verbatim s -> output_string fh s
+    | Para p -> output_paragraph fh ?width p; output_char fh '\n'
+    | Verbatim s -> output_string fh s; output_char fh '\n'
     | BlankLine -> output_string fh "\n\n" in
   List.iter output_elt text
 
