@@ -158,19 +158,19 @@ module Opam = struct
       List.iter (fun (fl, p) -> m := M.add fl [(p, Version.Set.empty)] !m)
                 opam_base_packages;
       (* Camlp4 was split out of the standard distribution.  A dummy
-         OPAM package was created for older compilers (thus one can
+         OPAM package was created for older compilersn, thus one can
          consider that all versions of the OPAM "camlp4" package have
-         the lib even though it is not detected automatically). *)
-      let opam_camlp4 = ("camlp4", M.find "camlp4" !pkgs) in
-      m := M.add "camlp4" (opam_camlp4 :: M.find "camlp4" !m) !m;
-      let m = M.map (fun pkgs -> merge_versions pkgs) !m in
+         the lib (which is what [Version.Set.empty] means) even though
+         it is not detected automatically. *)
+      m := M.add "camlp4" ["camlp4", Version.Set.empty] !m;
+      let findlib = M.map (fun pkgs -> merge_versions pkgs) !m in
       (* Cache *)
-      let to_cache = (m, !pkgs) in
+      let to_be_cached = (findlib, !pkgs) in
       let fh = open_out_bin cache in
-      output_value fh to_cache;
+      output_value fh to_be_cached;
       close_out fh;
       eprintf "done.\n%!";
-      to_cache
+      to_be_cached
     )
     else (
       (* Use the cache. *)
@@ -188,7 +188,9 @@ module Opam = struct
     try package_versions_exn pkg with Not_found -> Version.Set.empty
 
   (** Return the OPAM package(s) (with their OPAM versions) containing
-      the findlib library [lib].
+      the findlib library [lib].  An empty set of OPAM versions means that
+      any version is accepted (for example, versions constraints for
+      "camlp4" are set by the compiler).
       See https://github.com/ocaml/opam/issues/573 *)
   let of_findlib (lib: string) =
     try M.find lib findlib (* <> [] *) with Not_found -> []
