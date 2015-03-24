@@ -229,8 +229,12 @@ let opam_opam t flags opam_file_version =
   (match Version.satisfy_both pkg.ocaml_version compiler_libs_version with
    | Some v ->
       let v = Version.comparator_reduce v in
-      Format.fprintf fmt "ocaml-version: [ %s ]@\n"
-                     (Version.string_of_comparator v)
+      if OASISVersion.version_compare opam_file_version v1_2 < 0 then
+        Format.fprintf fmt "ocaml-version: [ %s ]@\n"
+                       (Version.string_of_comparator v)
+      else
+        Format.fprintf fmt "available: [ ocaml-version %s ]@\n"
+                       (Version.string_of_comparator v)
    | None -> ());
   (* If an _opam file (say with "depexts") exists in the archive, append it. *)
   let opam = Tarball.opam t in
