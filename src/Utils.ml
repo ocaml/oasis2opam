@@ -60,6 +60,17 @@ let fatal_error s = error s; exit 1
 let debug s = (!OASISContext.default).OASISContext.printf `Debug s
 
 
+let start_with s prefix =
+  let len = String.length prefix in
+  String.length s >= len && String.sub s 0 len = prefix
+
+let url_concat url path =
+  if url = "" then path
+  else if path = "" then url
+  else if url.[String.length url - 1] = '/' || path.[0] = '/' then
+    url ^ path
+  else url ^ "/" ^ path
+
 let concat_map l f =
   (* FIXME: a more efficient implementation may be desirable *)
   List.concat (List.map f l)
