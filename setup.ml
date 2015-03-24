@@ -1,7 +1,7 @@
 (***************************************************************************)
 (*  OASIS2OPAM: Convert OASIS metadata to OPAM package descriptions        *)
 (*                                                                         *)
-(*  Copyright (C) 2013-2014, Christophe Troestler                          *)
+(*  Copyright (C) 2013-2015, Christophe Troestler                          *)
 (*                                                                         *)
 (*  This library is free software; you can redistribute it and/or modify   *)
 (*  it under the terms of the GNU General Public License as published by   *)
