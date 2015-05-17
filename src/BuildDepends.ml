@@ -261,11 +261,15 @@ let add_depends_of_build d cond deps =
   List.fold_left findlib deps d
 
 let findlib_of_section deps = function
-  | Library(_, bs, _)
-  | Executable(_, bs, _) ->
-     (* A dep. is compulsory of the lib/exec is built & installed *)
-     let cond flags = eval_conditional flags bs.bs_build
-                      &&  eval_conditional flags bs.bs_install in
+  | Library(cs, bs, _)
+  | Executable(cs, bs, _) ->
+     (* A dep. is compulsory of the lib/exec is built | installed *)
+    let cond flags =
+      let is_built = eval_conditional flags bs.bs_build
+      and is_installed = eval_conditional flags bs.bs_install in
+      if is_built && not is_installed then
+        warn (Printf.sprintf "Section %S is built but not installed (missing Build$ flag?)" cs.cs_name);
+      is_built || is_installed in
      add_depends_of_build bs.bs_build_depends cond deps
   | _ -> deps
 
@@ -379,7 +383,7 @@ let add_suitable_pakages pkg_oasis_version (name, versions) l =
 
 (* [pkgs] are all the OPAM packages and versions providing a given
    findlib library. *)
-let strings_of_packages (pkgs, pkg_oasis_version) =
+let strings_of_packages ?(version=true) (pkgs, pkg_oasis_version) =
   let p = List.fold_right (add_suitable_pakages pkg_oasis_version) pkgs [] in
   let p =
     if List.for_all (fun (d,_,_) -> d = Only_findlib) p then p
@@ -387,9 +391,9 @@ let strings_of_packages (pkgs, pkg_oasis_version) =
       (* Suitable OPAM packages, remove the ones guessed from findlib. *)
       List.filter (fun (d,_,_) -> d <> Only_findlib) p in
   let to_string (_, name, version_cmp) =
-    match version_cmp with
-    | None -> sprintf "%S" name
-    | Some v -> sprintf "%S {%s}" name (Version.string_of_comparator v) in
+    match version_cmp, version with
+    | None, _ | _, false -> sprintf "%S" name
+    | Some v, true -> sprintf "%S {%s}" name (Version.string_of_comparator v) in
   List.map to_string p
 
 
@@ -433,7 +437,7 @@ let output t fmt flags =
     Format.fprintf fmt "@\n# Included from _opam file@\n%s" opam_depends
   );
   Format.fprintf fmt "@]@\n]@\n";
-  if opt <> [] then (
+  let conflicts = if opt = [] then [] else (
     (* Optional packages are a simple "or-formula".  Gather all packages
        individually (but use the same data-structure as above). *)
     let add_pkgs pkgs (l,v,_) =
@@ -443,35 +447,42 @@ let output t fmt flags =
                            ~merge:merge_pkgs
                            pkgs in
     Format.fprintf fmt "@[<2>depopts: [";
-    List.iter (fun p -> match strings_of_packages p with
+    List.iter (fun p -> match strings_of_packages ~version:false p with
                      | [] -> ()
                      | p0 :: tl ->
                         Format.fprintf fmt "@\n%s" p0;
                         List.iter (fun s -> Format.fprintf fmt "@;<1 2>%s" s) tl;
               ) pkgs;
     Format.fprintf fmt "@]@\n]@\n";
-  );
+    List.fold_left (fun accum (l,v) ->
+        List.fold_left (fun accum (p,_) -> (p, Version.complement_reduce v) :: accum) accum l
+      ) [] pkgs
+    ) in
   (* Conflicts.  There are other packages (& version in case the
      conflict is or will be removed) which provide the same library. *)
   let libs = get_findlib_libraries flags pkg in
   let add_conflict c lib =
     let pkgs = Opam.of_findlib lib in
     let pkgs = List.filter (fun (p,_) -> p <> pkg.name) pkgs in
+    let pkgs = List.map (fun (p, v_set) ->
+        p, Version.Set.fold (fun v accum ->
+            Version.satisfy_any (Some (OASISVersion.VEqual v)) accum) v_set None) pkgs in
     if pkgs <> [] then pkgs @ c
     else c in
-  let conflicts = List.fold_left add_conflict [] libs in
+  let conflicts = List.fold_left add_conflict conflicts libs in
+  let conflicts = List.filter (fun (_, v) -> v <> None) conflicts in
   if conflicts <> [] then (
     let conflicts =
       make_unique ~cmp:(fun (p1,_) (p2,_) -> String.compare p1 p2)
-                  ~merge:(fun (p1,v1) (p2,v2) -> (p1, Version.Set.union v1 v2))
+                  ~merge:(fun (p1,v1) (p2,v2) -> (p1, Version.satisfy_any v1 v2))
                   conflicts in
     Format.fprintf fmt "@[<2>conflicts: [";
-    List.iter (fun (p,v_set) ->
-               let conflict_version v =
-                 Format.fprintf fmt "@\n%S {= %S}"
-                                p (OASISVersion.string_of_version v) in
-               Version.Set.iter conflict_version v_set;
-              ) conflicts;
+    List.iter (function
+        | p, Some v ->
+          Format.fprintf fmt "@\n%S {%s}"
+            p (Version.string_of_comparator v)
+        | p, None -> ()
+      ) conflicts;
     Format.fprintf fmt "@]@\n]@\n";
   )
 ;;
