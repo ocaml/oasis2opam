@@ -232,6 +232,27 @@ module Opam = struct
     | _, [] -> 1
     | [], _ -> -1
 
+  (* Order on packages that consider equal two sets with one included
+     in the other.  Otherwise the package set with the smaller name
+     not in the other set is declared smaller.
+     Assume the lists are sorted in increasing order as [of_findlib]
+     provides them.*)
+  let rec cmp_diff_pkgs_loop cmp p1s p2s = match p1s, p2s with
+    | [], [] -> 0 (* p1s ⊆ p2s or  *)
+    | (_::_), [] -> if cmp <= 0 then 0 (* p1s ⊇ p2s *) else cmp
+    | [], (_::_) -> if cmp >= 0 then 0 (* p1s ⊆ p2s *) else cmp
+    | (n1, _) :: tl1, (n2, _) :: tl2 ->
+       let cp = String.compare n1 n2 in
+       if cp = 0 then cmp_diff_pkgs_loop cmp tl1 tl2 (* skip common element *)
+       else if cp < 0 then
+         if cmp <= 0 then cmp_diff_pkgs_loop cp tl1 p2s
+         else cmp (* p1\p2 ≠ ∅ and p2\p1 ≠ ∅, first (= smaller) wins *)
+       else (* cp > 0 *)
+         if cmp >= 0 then cmp_diff_pkgs_loop cp p1s tl2
+         else cmp (* p1\p2 ≠ ∅ and p2\p1 ≠ ∅ *)
+
+   let cmp_diff_pkgs p1 p2 = cmp_diff_pkgs_loop 0 p1 p2
+
   (* Merge two lists of packages, taking only those common to the two
      lists and the versions in both lists.  An empty version set is
      interpreted as "any version is OK".  Assume the list are sorted
@@ -327,6 +348,16 @@ let get_findlib_libraries flags pkg =
 
 (* Format OPAM output
  ***********************************************************************)
+
+(* Simplify ⋀ (⋁ OPAM packages, version constraint). *)
+let simplify_packages =
+  (* When a set of packages A is included in A ∪ B, the formula
+     A ∧ (A ∨ B) is equivalent to A = A ∩ (A ∪ B). *)
+  let cmp (p1,_) (p2,_) = Opam.cmp_diff_pkgs p1 p2 in
+  (* List of dependencies repeated => satisfy both constraints. *)
+  let merge (p1, v1) (p2, v2) =
+    (Opam.intersect_pkgs p1 p2, Version.satisfy_both v1 v2) in
+  fun pkgs -> make_unique ~cmp ~merge pkgs
 
 type suitable_opam =
   | Only_findlib (* No OPAM package satisfying the constraints was found *)
@@ -427,12 +458,7 @@ let output t fmt flags =
                let v = OASISVersion.VGreaterEqual pkg.oasis_version in
                (Opam.of_findlib "oasis", Some v) :: pkgs
              else pkgs in
-  (* list of dependencies repeated => satisfy both constraints. *)
-  let merge_pkgs (p1, v1) (p2, v2) =
-    (Opam.intersect_pkgs p1 p2, Version.satisfy_both v1 v2) in
-  let pkgs = make_unique ~cmp:(fun (p1,_) (p2, _) -> Opam.compare_pkgs p1 p2)
-                         ~merge:merge_pkgs
-                         pkgs in
+  let pkgs = simplify_packages pkgs in
   let pkgs = constrain_opam_packages pkgs in
   Format.fprintf fmt "@[<2>depends: [";
   List.iter (fun p -> Format.fprintf fmt "@\n%s" (string_of_packages p)) pkgs;
@@ -447,9 +473,7 @@ let output t fmt flags =
     let add_pkgs pkgs (l,v,_) =
       List.fold_left (fun pk p -> ([p],v) :: pk) pkgs (Opam.of_findlib_warn l) in
     let pkgs = List.fold_left add_pkgs [] opt in
-    let pkgs = make_unique ~cmp:(fun (p1,_) (p2,_) -> Opam.compare_pkgs p1 p2)
-                           ~merge:merge_pkgs
-                           pkgs in
+    let pkgs = simplify_packages pkgs in
     let pkgs = constrain_opam_packages pkgs in
     Format.fprintf fmt "@[<2>depopts: [";
     List.iter (fun p -> match strings_of_packages p with
