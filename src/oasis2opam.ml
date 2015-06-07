@@ -152,10 +152,22 @@ let output_build_install t fmt flags opam_file_version =
   List.iter flag_enable (opam_for_flags flags);
   Format.fprintf fmt "@]]@\n\
                       [\"ocaml\" \"setup.ml\" \"-build\"]";
-  if OASISVersion.version_compare opam_file_version v1_2 >= 0 then
+  if OASISVersion.version_compare opam_file_version v1_2 >= 0 then (
     (* OPAM 1.2 has an "install" field *)
     Format.fprintf fmt "@]@\n]@\n\
-                        install: [\"ocaml\" \"setup.ml\" \"-install\"]@\n"
+                        install: [\"ocaml\" \"setup.ml\" \"-install\"]@\n";
+    (* Build for testing. *)
+    Format.fprintf fmt "@[<2>build-test: [@\n\
+                        @[<2>[\"ocaml\" \"setup.ml\" \"-configure\" \
+                        \"--enable-tests\"";
+    List.iter flag_enable (opam_for_flags flags);
+    Format.fprintf fmt "@]]@\n\
+                        [\"ocaml\" \"setup.ml\" \"-build\"]@\n\
+                        [\"ocaml\" \"setup.ml\" \"-test\"]\
+                        @]@\n]@\n";
+    (* Build documentation. *)
+    Format.fprintf fmt "build-doc: [\"ocaml\" \"setup.ml\" \"-doc\"]@\n";
+  )
   else
     Format.fprintf fmt "@\n[\"ocaml\" \"setup.ml\" \"-install\"]\
                         @]@\n]@\n";
