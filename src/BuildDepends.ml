@@ -45,6 +45,8 @@ module Opam = struct
 
   exception Error of int
 
+  (** [opam args] execute opam with the list os arguments [args] and
+      return the output. *)
   let opam =
     let f_exit_code c =
       if c <> 0 then
@@ -55,6 +57,7 @@ module Opam = struct
       ~ctxt:!OASISContext.default ~f_exit_code
       "opam" cmd
 
+  (** The local directory, root of OPAM installation. *)
   let root =
     try Sys.getenv "OPAMROOT"
     with Not_found ->
@@ -182,7 +185,7 @@ module Opam = struct
 
   (** Return the set of available versions for the OPAM package [pkg]
       or raise [Not_found]. *)
-  let package_versions_exn pkg = M.find pkg packages
+  let package_versions_exn (pkg: string) = M.find pkg packages
 
   let package_versions pkg =
     try package_versions_exn pkg with Not_found -> Version.Set.empty
@@ -198,7 +201,7 @@ module Opam = struct
   let to_string (p, v) =
     p ^ " (" ^ Version.Set.to_string v ^ ")"
 
-  let of_findlib_warn lib =
+  let of_findlib_warn (lib: string) : (string * Version.Set.t) list =
     let pkgs = of_findlib lib in
     match pkgs with
     | [_] -> pkgs
