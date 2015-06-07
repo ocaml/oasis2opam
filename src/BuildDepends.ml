@@ -379,21 +379,26 @@ let add_suitable_pakages pkg_oasis_version (name, versions) l =
          Version.Set.fold add good_versions l
   )
 
-
 (* [pkgs] are all the OPAM packages and versions providing a given
    findlib library. *)
-let strings_of_packages (pkgs, pkg_oasis_version) =
+let constrain_opam_package (pkgs, pkg_oasis_version) =
   let p = List.fold_right (add_suitable_pakages pkg_oasis_version) pkgs [] in
   let p =
     if List.for_all (fun (d,_,_) -> d = Only_findlib) p then p
     else
       (* Suitable OPAM packages, remove the ones guessed from findlib. *)
       List.filter (fun (d,_,_) -> d <> Only_findlib) p in
-  let to_string (_, name, version_cmp) =
+  List.map (fun (_, p, v) -> (p, v)) p
+
+let constrain_opam_packages pkgs =
+  List.map constrain_opam_package pkgs
+
+let strings_of_packages =
+  let to_string (name, version_cmp) =
     match version_cmp with
     | None -> sprintf "%S" name
     | Some v -> sprintf "%S {%s}" name (Version.string_of_comparator v) in
-  List.map to_string p
+  fun p -> List.map to_string p
 
 
 let string_of_packages pkgs_version =
@@ -411,10 +416,6 @@ let output t fmt flags =
   let pkg = Tarball.oasis t in
   let deps, opt = get_findlib_dependencies flags pkg in
 
-  (* list of dependencies repeated => satisfy both constraints. *)
-  let merge_pkgs (p1, v1) (p2, v2) =
-    (Opam.intersect_pkgs p1 p2, Version.satisfy_both v1 v2) in
-
   (* Required dependencies. *)
   let pkgs = List.map (fun (l,v,_) -> (Opam.of_findlib_warn l, v)) deps in
   let pkgs =
@@ -426,9 +427,13 @@ let output t fmt flags =
                let v = OASISVersion.VGreaterEqual pkg.oasis_version in
                (Opam.of_findlib "oasis", Some v) :: pkgs
              else pkgs in
+  (* list of dependencies repeated => satisfy both constraints. *)
+  let merge_pkgs (p1, v1) (p2, v2) =
+    (Opam.intersect_pkgs p1 p2, Version.satisfy_both v1 v2) in
   let pkgs = make_unique ~cmp:(fun (p1,_) (p2, _) -> Opam.compare_pkgs p1 p2)
                          ~merge:merge_pkgs
                          pkgs in
+  let pkgs = constrain_opam_packages pkgs in
   Format.fprintf fmt "@[<2>depends: [";
   List.iter (fun p -> Format.fprintf fmt "@\n%s" (string_of_packages p)) pkgs;
   let opam_depends = Tarball.opam_depends t in
@@ -445,6 +450,7 @@ let output t fmt flags =
     let pkgs = make_unique ~cmp:(fun (p1,_) (p2,_) -> Opam.compare_pkgs p1 p2)
                            ~merge:merge_pkgs
                            pkgs in
+    let pkgs = constrain_opam_packages pkgs in
     Format.fprintf fmt "@[<2>depopts: [";
     List.iter (fun p -> match strings_of_packages p with
                      | [] -> ()
