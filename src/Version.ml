@@ -134,6 +134,8 @@ let no_constraint = { kind = Std;  cmp = None }
 
 let is_unconstrained c = c.kind = Std && c.cmp = None
 
+let is_test c = c.kind = Test
+
 let string_of_constraint c =
   match c.kind, c.cmp with
   | Std, None -> ""

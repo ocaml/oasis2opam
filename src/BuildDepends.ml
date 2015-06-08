@@ -279,24 +279,29 @@ end
 (* Gather findlib packages
  ***********************************************************************)
 
-let add_depends_of_build d cond deps =
-  let findlib deps = function
-    | FindlibPackage(lib, v) ->
-       (* If the Findlib library contains a dot, it is a
-          sub-library.  Only keep the main lib. *)
-       let lib = try String.sub lib 0 (String.index lib '.')
-                 with Not_found -> lib in
-       (lib, Version.constrain v, cond) :: deps
-    | InternalLibrary _ -> deps in
-  List.fold_left findlib deps d
+let has_flag_test =
+  let is_test = function
+    | (OASISExpr.EFlag "tests", _) -> true
+    | _ -> false in
+  fun choices -> List.exists is_test choices
 
 let findlib_of_section deps = function
   | Library(_, bs, _)
   | Executable(_, bs, _) ->
      (* A dep. is compulsory of the lib/exec is built & installed *)
      let cond flags = eval_conditional flags bs.bs_build
-                      &&  eval_conditional flags bs.bs_install in
-     add_depends_of_build bs.bs_build_depends cond deps
+                      && eval_conditional flags bs.bs_install in
+     let findlib deps = function
+       | FindlibPackage(lib, v) ->
+          (* If the Findlib library contains a dot, it is a
+             sub-library.  Only keep the main lib. *)
+          let lib = try String.sub lib 0 (String.index lib '.')
+                    with Not_found -> lib in
+          let kind = if has_flag_test bs.bs_build then Version.Test
+                     else Version.Std in
+          (lib, Version.constrain v ~kind, cond) :: deps
+       | InternalLibrary _ -> deps in
+     List.fold_left findlib deps bs.bs_build_depends
   | _ -> deps
 
 let merge_findlib_depends =
@@ -313,7 +318,8 @@ let get_all_findlib_dependencies flags pkg =
   let deps = merge_findlib_depends deps in
   (* Distinguish findlib packages that are going to be installed from
      optional ones. *)
-  let deps_opt = List.partition (fun (_,_,c) -> c flags) deps in
+  let group1 (_,c,cond) = Version.is_test c || cond flags in
+  let deps_opt = List.partition group1 deps in
   deps_opt
 
 (** Tell whether "compiler-libs" is a mandatory dependency. *)
