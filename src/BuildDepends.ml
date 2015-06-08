@@ -91,6 +91,11 @@ module Opam = struct
       add_all_findlib m opam s ofs
     with Not_found -> ()
 
+  let add_opam_version packages (opam_pkg: string) version =
+    let v_set = try Version.Set.add version (M.find opam_pkg !packages)
+                with Not_found -> Version.Set.singleton version in
+    packages := M.add opam_pkg v_set !packages
+
   (* Keep the set of versions for each package. *)
   let merge_versions pkgs =
     make_unique ~cmp:(fun (p1,_) (p2,_) -> String.compare p1 p2)
@@ -149,9 +154,7 @@ module Opam = struct
         add_all_findlib m (opam_pkg, Version.Set.singleton version) s 0;
         (* We also want to keep a correspondence of OPAM packages →
            versions (even those with no findlib detectable lib) *)
-        let v_set = try Version.Set.add version (M.find opam_pkg !pkgs)
-                    with Not_found -> Version.Set.singleton version in
-        pkgs := M.add opam_pkg v_set !pkgs;
+        add_opam_version pkgs opam_pkg version
       in
       add_of_dir (Filename.concat root "repo");
       (* For OPAM < 1.1, the sub-dir "opam" was used: *)
