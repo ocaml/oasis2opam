@@ -298,7 +298,7 @@ let findlib_of_section deps = function
           let lib = try String.sub lib 0 (String.index lib '.')
                     with Not_found -> lib in
           let kind = if has_flag_test bs.bs_build then Version.Test
-                     else Version.Std in
+                     else Version.Required in
           (lib, Version.constrain v ~kind, cond) :: deps
        | InternalLibrary _ -> deps in
      List.fold_left findlib deps bs.bs_build_depends
