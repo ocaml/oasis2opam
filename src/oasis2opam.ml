@@ -152,23 +152,18 @@ let output_build_install t fmt flags opam_file_version =
   List.iter flag_enable (opam_for_flags flags);
   Format.fprintf fmt "@]]@\n\
                       [\"ocaml\" \"setup.ml\" \"-build\"]";
-  if OASISVersion.version_compare opam_file_version v1_2 >= 0 then (
-    (* OPAM 1.2 has an "install" field *)
-    Format.fprintf fmt "@]@\n]@\n\
-                        install: [\"ocaml\" \"setup.ml\" \"-install\"]@\n";
-    (* Build for testing. *)
-    Format.fprintf fmt "@[<2>build-test: [@\n\
-                        @[<2>[\"ocaml\" \"setup.ml\" \"-configure\" \
-                        \"--enable-tests\"";
-    List.iter flag_enable (opam_for_flags flags);
-    Format.fprintf fmt "@]]@\n\
-                        [\"ocaml\" \"setup.ml\" \"-build\"]@\n\
-                        [\"ocaml\" \"setup.ml\" \"-test\"]\
-                        @]@\n]@\n";
-  )
-  else
-    Format.fprintf fmt "@\n[\"ocaml\" \"setup.ml\" \"-install\"]\
-                        @]@\n]@\n";
+  (* OPAM 1.2 has an "install" field *)
+  Format.fprintf fmt "@]@\n]@\n\
+                      install: [\"ocaml\" \"setup.ml\" \"-install\"]@\n";
+  (* Build for testing. *)
+  Format.fprintf fmt "@[<2>build-test: [@\n\
+                      @[<2>[\"ocaml\" \"setup.ml\" \"-configure\" \
+                      \"--enable-tests\"";
+  List.iter flag_enable (opam_for_flags flags);
+  Format.fprintf fmt "@]]@\n\
+                      [\"ocaml\" \"setup.ml\" \"-build\"]@\n\
+                      [\"ocaml\" \"setup.ml\" \"-test\"]\
+                      @]@\n]@\n";
   let libs = BuildDepends.get_findlib_libraries flags pkg in
   if libs <> [] then (
     Format.fprintf fmt "@[<2>remove: [";
@@ -194,13 +189,9 @@ let opam_opam t flags opam_file_version =
                  (OASISVersion.string_of_version pkg.version);
   output_maintainer fmt pkg;
   output_authors fmt pkg;
-  let prefix =
-    if OASISVersion.version_compare opam_file_version v1_2 < 0 then "# "
-    else "" in
-  Format.fprintf fmt "%slicense: %S@\n"
-                 prefix (OASISLicense.to_string pkg.license);
+  Format.fprintf fmt "license: %S@\n" (OASISLicense.to_string pkg.license);
   (match pkg.homepage with
-   | Some url -> Format.fprintf fmt "%shomepage: %S@\n" prefix url
+   | Some url -> Format.fprintf fmt "homepage: %S@\n" url
    | None -> warn "Consider adding \"Homepage:\" to your _oasis file");
   (* Source repository *)
   let get_source_repository = function
@@ -209,7 +200,7 @@ let opam_opam t flags opam_file_version =
   let source_repository =
     match Utils.map_find pkg.sections get_source_repository with
     | Some src ->
-       Format.fprintf fmt "%sdev-repo: %S@\n" prefix src.src_repo_location;
+       Format.fprintf fmt "dev-repo: %S@\n" src.src_repo_location;
        Some src.src_repo_location
    | None -> None in
   (* Bug reports URL — with Github heuristics *)
@@ -221,7 +212,7 @@ let opam_opam t flags opam_file_version =
        Some(url_concat (Filename.chop_extension url) "issues")
     | _ -> None in
   (match bugreports with
-   | Some url -> Format.fprintf fmt "%sbug-reports: %S@\n" prefix url
+   | Some url -> Format.fprintf fmt "bug-reports: %S@\n" url
    | None ->
       (* See https://github.com/ocaml/oasis/pull/62 *)
       (* warn "Consider adding \"BugReports:\" to your _oasis file" *)
@@ -239,12 +230,8 @@ let opam_opam t flags opam_file_version =
   (match Version.satisfy_both pkg.ocaml_version compiler_libs_version with
    | Some v ->
       let v = Version.comparator_reduce v in
-      if OASISVersion.version_compare opam_file_version v1_2 < 0 then
-        Format.fprintf fmt "ocaml-version: [ %s ]@\n"
-                       (Version.string_of_comparator v)
-      else
-        Format.fprintf fmt "available: [ ocaml-version %s ]@\n"
-                       (Version.string_of_comparator v)
+      Format.fprintf fmt "available: [ ocaml-version %s ]@\n"
+                     (Version.string_of_comparator v)
    | None -> ());
   (* If an _opam file (say with "depexts") exists in the archive, append it. *)
   let opam = Tarball.opam t in
@@ -308,7 +295,6 @@ let () =
   let version = ref false in
   let duplicates = ref false in
   let query_findlib = ref "" in
-  let opam_file_version = ref "1.2" in
   let specs = [
     "--local", Arg.Set local,
     " create an opam dir for the _oasis in the current dir";
@@ -318,8 +304,6 @@ let () =
     "LIB return the list of OPAM packages providing LIB";
     "--version", Arg.Set version,
     " print the oasis2opam version";
-    "--opam1", Arg.Unit(fun () -> opam_file_version := "1"),
-    " use format 1 for the file \"opam\"";
     ] in
   let url = ref "" in
   let specs = Arg.align(specs @ fst (OASISContext.fspecs ())) in
@@ -346,7 +330,7 @@ let () =
   if !url = "" && not !local then (Arg.usage specs usage_msg; exit 1);
   (* Thus [!url = ""] iff !local, from now on. *)
 
-  let opam_file_version = OASISVersion.version_of_string !opam_file_version in
+  let opam_file_version = OASISVersion.version_of_string "1.2" in
   let t = Tarball.get !url in
   let pkg = Tarball.oasis t in
   let flags = get_flags pkg.sections in
