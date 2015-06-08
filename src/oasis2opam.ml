@@ -165,8 +165,6 @@ let output_build_install t fmt flags opam_file_version =
                         [\"ocaml\" \"setup.ml\" \"-build\"]@\n\
                         [\"ocaml\" \"setup.ml\" \"-test\"]\
                         @]@\n]@\n";
-    (* Build documentation. *)
-    Format.fprintf fmt "build-doc: [\"ocaml\" \"setup.ml\" \"-doc\"]@\n";
   )
   else
     Format.fprintf fmt "@\n[\"ocaml\" \"setup.ml\" \"-install\"]\
