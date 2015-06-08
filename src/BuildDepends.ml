@@ -286,11 +286,16 @@ let has_flag_test =
   fun choices -> List.exists is_test choices
 
 let findlib_of_section deps = function
-  | Library(_, bs, _)
-  | Executable(_, bs, _) ->
-     (* A dep. is compulsory of the lib/exec is built & installed *)
-     let cond flags = eval_conditional flags bs.bs_build
-                      && eval_conditional flags bs.bs_install in
+  | Library(cs, bs, _)
+  | Executable(cs, bs, _) ->
+     (* A dep. is compulsory of the lib/exec is built or installed *)
+     let cond flags =
+       let is_built = eval_conditional flags bs.bs_build
+       and is_installed = eval_conditional flags bs.bs_install in
+       if is_built && not is_installed then
+         warn (sprintf "Section %S is built but not installed \
+                        (missing Build$ flag?)" cs.cs_name);
+       is_built || is_installed in
      let findlib deps = function
        | FindlibPackage(lib, v) ->
           (* If the Findlib library contains a dot, it is a
