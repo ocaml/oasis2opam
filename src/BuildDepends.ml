@@ -286,7 +286,7 @@ let add_depends_of_build d cond deps =
           sub-library.  Only keep the main lib. *)
        let lib = try String.sub lib 0 (String.index lib '.')
                  with Not_found -> lib in
-       (lib, v, cond) :: deps
+       (lib, Version.constrain v, cond) :: deps
     | InternalLibrary _ -> deps in
   List.fold_left findlib deps d
 
@@ -303,7 +303,7 @@ let merge_findlib_depends =
   let merge (p1, v1, c1) (p2, v2, c2) =
     (* A dep. is compulsory as soon as any occurrence of it is. *)
     let cond flags = c1 flags || c2 flags in
-    (p1, Version.satisfy_both v1 v2, cond) in
+    (p1, Version.satisfy_both_constraints v1 v2, cond) in
   fun d -> make_unique ~cmp:(fun (p1,_,_) (p2,_,_) -> String.compare p1 p2)
                     ~merge
                     d
@@ -362,7 +362,7 @@ let simplify_packages =
   let cmp (p1,_) (p2,_) = Opam.cmp_diff_pkgs p1 p2 in
   (* List of dependencies repeated => satisfy both constraints. *)
   let merge (p1, v1) (p2, v2) =
-    (Opam.intersect_pkgs p1 p2, Version.satisfy_both v1 v2) in
+    (Opam.intersect_pkgs p1 p2, Version.satisfy_both_constraints v1 v2) in
   fun pkgs -> make_unique ~cmp ~merge pkgs
 
 type suitable_opam =
@@ -372,30 +372,32 @@ type suitable_opam =
 (* Add to [l] the packages [name] with possible version constraints if
    not all package versions are present.  It is assumed that the oasis
    versions and the OPAM ones coincide. *)
-let add_suitable_pakages pkg_oasis_version (name, versions) l =
+let add_suitable_pakages pkg_oasis_constraint (name, versions) l =
   let opam_versions = Opam.package_versions name in
   if Version.Set.is_empty opam_versions then
     (* The package does not exists in OPAM.  Maybe it was not yet
        added.  Just add the name with the oasis constraint *)
-    (Only_findlib, name, pkg_oasis_version) :: l
+    (Only_findlib, name, pkg_oasis_constraint) :: l
   else (
     let latest = Version.Set.max_elt opam_versions in
-    match pkg_oasis_version with
+    match pkg_oasis_constraint.Version.cmp with
     | None ->
        if Version.Set.equal versions opam_versions
           || Version.Set.is_empty versions then
          (* All OPAM versions have the library (an empty set of versions
             means anything is accepted).  One expects it will still be
             the case in the future, so no version constraint. *)
-         (Opam, name, None) :: l
+         let c = { pkg_oasis_constraint with Version.cmp = None } in
+         (Opam, name, c) :: l
        else
          (* Only some OPAM versions have the lib.  If the [latest] is
             among them, then assume it will remain the case in the future. *)
          let add v l =
            let open OASISVersion in
-           let c = if version_compare v latest = 0 then VGreaterEqual v
-                   else VEqual v in
-           (Opam, name, Some c) :: l in
+           let cmp = if version_compare v latest = 0 then VGreaterEqual v
+                     else VEqual v in
+           let c = { pkg_oasis_constraint with Version.cmp = Some cmp } in
+           (Opam, name, c) :: l in
          Version.Set.fold add versions l
     | Some pkg_oasis_version ->
        (* Only keep the versions that satisfy the constraint. *)
@@ -408,11 +410,14 @@ let add_suitable_pakages pkg_oasis_version (name, versions) l =
           and we only add the [good_versions]. *)
        if Version.Set.mem latest good_versions
           || Version.Set.is_empty versions then
-         (Opam, name, Some pkg_oasis_version) :: l
+         (Opam, name, pkg_oasis_constraint) :: l
        else if Version.Set.is_empty good_versions then
-         (Only_findlib, name, Some pkg_oasis_version) :: l
+         (Only_findlib, name, pkg_oasis_constraint) :: l
        else
-         let add v l = (Opam, name, Some(OASISVersion.VEqual v)) :: l in
+         let add v l =
+           let c = { pkg_oasis_constraint with
+                     Version.cmp = Some(OASISVersion.VEqual v) } in
+           (Opam, name, c) :: l in
          Version.Set.fold add good_versions l
   )
 
@@ -431,10 +436,11 @@ let constrain_opam_packages pkgs =
   List.map constrain_opam_package pkgs
 
 let strings_of_packages =
-  let to_string (name, version_cmp) =
-    match version_cmp with
-    | None -> sprintf "%S" name
-    | Some v -> sprintf "%S {%s}" name (Version.string_of_comparator v) in
+  let to_string (name, v_constraint) =
+    if Version.is_unconstrained v_constraint then
+      sprintf "%S" name
+    else
+      sprintf "%S {%s}" name (Version.string_of_constraint v_constraint) in
   fun p -> List.map to_string p
 
 
@@ -459,10 +465,12 @@ let output t fmt flags =
     let v = if List.exists (fun (l,_,_) -> l = "bytes") deps then
               Version.satisfy_both pkg.findlib_version findlib_for_bytes
             else pkg.findlib_version in
-    (["ocamlfind", Version.Set.empty], v) :: pkgs in
+    let c = Version.(constrain v ~kind:Build) in
+    (["ocamlfind", Version.Set.empty], c) :: pkgs in
   let pkgs = if Tarball.needs_oasis t then
                let v = OASISVersion.VGreaterEqual pkg.oasis_version in
-               (Opam.of_findlib "oasis", Some v) :: pkgs
+               let c = Version.constrain (Some v) ~kind:Version.Build in
+               (Opam.of_findlib "oasis", c) :: pkgs
              else pkgs in
   let pkgs = simplify_packages pkgs in
   let pkgs = constrain_opam_packages pkgs in

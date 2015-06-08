@@ -339,9 +339,10 @@ let () =
   if !query_findlib <> "" then (
     (match BuildDepends.Opam.of_findlib !query_findlib with
      | [] -> printf "%S is NOT provided by an OPAM package.\n" !query_findlib
-     | pkgs -> let pkgs = BuildDepends.constrain_opam_package (pkgs, None) in
+     | pkgs -> let pkgs = BuildDepends.constrain_opam_package
+                            (pkgs, Version.no_constraint) in
                printf "%S is provided by: %s\n" !query_findlib
-                     (BuildDepends.string_of_packages pkgs));
+                      (BuildDepends.string_of_packages pkgs));
     exit 0;
   );
   if !url = "" && not !local then (Arg.usage specs usage_msg; exit 1);

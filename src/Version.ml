@@ -122,3 +122,32 @@ let string_of_comparator v =
   (* If one wants to print the constraints, a short form is always
      desirable. *)
   opam_string_of_comparator(comparator_reduce v)
+
+type kind = Std | Build | Test
+
+type constraints = { kind: kind;
+                     cmp: OASISVersion.comparator option }
+
+let constrain ?(kind=Std) cmp = { kind; cmp }
+
+let no_constraint = { kind = Std;  cmp = None }
+
+let is_unconstrained c = c.kind = Std && c.cmp = None
+
+let string_of_constraint c =
+  match c.kind, c.cmp with
+  | Std, None -> ""
+  | Std, Some cmp -> string_of_comparator cmp
+  | Build, None -> "build"
+  | Build, Some cmp -> "build & " ^ string_of_comparator cmp
+  | Test, None -> "test"
+  | Test, Some cmp -> "test & " ^ string_of_comparator cmp
+
+let satisfy_both_constraints c1 c2 =
+  let kind = match c1.kind, c2.kind with
+    | _, Std -> c1.kind
+    | Std, _ -> c2.kind
+    | Build, (Build|Test) | Test, Build -> Build (* Build comes before test *)
+    | Test, Test -> Test in
+  { kind;
+    cmp = satisfy_both c1.cmp c2.cmp }
