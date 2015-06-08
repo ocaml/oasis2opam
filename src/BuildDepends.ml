@@ -123,27 +123,29 @@ module Opam = struct
           Array.iter (add_opam dir) (Sys.readdir dir)
       and add_opam dir pkg_ver =
         let fname = Filename.concat dir pkg_ver in
-        (* One must first try if an .opam extension is present. *)
+        (* One first checks if an .opam extension is present. *)
         if Str.string_match pkg_re_1_0 pkg_ver 0 then (
           let opam = Str.matched_group 1 pkg_ver in
           let version = Str.matched_group 2 pkg_ver in
           add opam version fname
         )
         else if Str.string_match pkg_re_1_1 pkg_ver 0 then (
-          let opam = Str.matched_group 1 pkg_ver in
+          let opam_pkg = Str.matched_group 1 pkg_ver in
           let version = Str.matched_group 2 pkg_ver in
           let findlib_file = Filename.concat fname "findlib" in
           let opam_file = Filename.concat fname "opam" in
-          if Sys.file_exists findlib_file then (
-            (* Use the file "findlib" listing all provided libraries *)
-            let version = OASISVersion.version_of_string version in
-            let opam = (opam, Version.Set.singleton version) in
-            let s = read_whole_file findlib_file in
-            let findlibs = Str.split space_re s in
-            List.iter (fun f -> add_is_provided_by m ~findlib:f ~opam) findlibs
+          if Sys.file_exists opam_file then (
+            if Sys.file_exists findlib_file then (
+              (* Use the file "findlib" listing all provided libraries *)
+              let version = OASISVersion.version_of_string version in
+              let opam = (opam_pkg, Version.Set.singleton version) in
+              let s = read_whole_file findlib_file in
+              let findlibs = Str.split space_re s in
+              List.iter (fun f -> add_is_provided_by m ~findlib:f ~opam) findlibs;
+            )
+            else
+              add opam_pkg version opam_file
           )
-          else if Sys.file_exists opam_file then
-            add opam version opam_file
         )
         else (* OPAM 1.1 stores packages hierarchically.  Recurse. *)
           add_of_dir fname
