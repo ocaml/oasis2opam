@@ -142,6 +142,7 @@ module Opam = struct
               let s = read_whole_file findlib_file in
               let findlibs = Str.split space_re s in
               List.iter (fun f -> add_is_provided_by m ~findlib:f ~opam) findlibs;
+              add_opam_version pkgs opam_pkg version;
             )
             else
               add opam_pkg version opam_file
