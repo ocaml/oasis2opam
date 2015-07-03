@@ -70,51 +70,121 @@ let max v1 v2 =
 let min v1 v2 =
   if OASISVersion.version_compare v1 v2 <= 0 then v1 else v2
 
+let rec collect_ands = function
+  | VAnd(v1, v2) -> let le1, ge1, other1 = collect_ands v1
+                    and le2, ge2, other2 = collect_ands v2 in
+                    (le1 @ le2, ge1 @ ge2, other1 @ other2)
+  | (VLesser _ | VLesserEqual _) as v -> [v], [], []
+  | (VGreater _ | VGreaterEqual _ | VEqual _) as v -> [], [v], []
+  | v -> [], [], [v]
+
+let rec collect_ors = function
+  | VOr(v1, v2) -> let le1, ge1, other1 = collect_ors v1
+                   and le2, ge2, other2 = collect_ors v2 in
+                   (le1 @ le2, ge1 @ ge2, other1 @ other2)
+  | (VLesser _ | VLesserEqual _) as v -> [v], [], []
+  | (VGreater _ | VGreaterEqual _ | VEqual _) as v -> [], [v], []
+  | v -> [], [], [v]
+
+let rec and_le = function
+  | [] -> None
+  | [v] -> Some v
+  | VLesser v1 :: VLesser v2 :: tl ->
+     and_le (VLesser(min v1 v2) :: tl)
+  | VLesserEqual v1 :: VLesserEqual v2 :: tl ->
+     and_le (VLesserEqual(min v1 v2) :: tl)
+  | (VLesserEqual v1 as c1) :: (VLesser v2 as c2) :: tl
+  | (VLesser v2 as c2) :: (VLesserEqual v1 as c1) :: tl ->
+     let v = if OASISVersion.version_compare v1 v2 < 0 then c1 else c2 in
+     and_le (v :: tl)
+  | (VEqual v1 as c1) :: c2 :: tl
+  | c2 :: (VEqual v1 as c1) :: tl ->
+     if OASISVersion.comparator_apply v1 c2 then and_le (c1 :: tl)
+     else Some(VAnd(c1, c2)) (* v1 does not satisfy c2, witness of falseness *)
+  | _ -> assert false
+
+let rec and_ge = function
+  | [] -> None
+  | [v] -> Some v
+  | VGreater v1 :: VGreater v2 :: tl ->
+     and_ge (VGreater(max v1 v2) :: tl)
+  | VGreaterEqual v1 :: VGreaterEqual v2 :: tl ->
+     and_ge (VGreaterEqual(max v1 v2) :: tl)
+  | (VGreaterEqual v1 as c1) :: (VGreater v2 as c2) :: tl
+  | (VGreater v2 as c2) :: (VGreaterEqual v1 as c1) :: tl ->
+     let v = if OASISVersion.version_compare v1 v2 > 0 then c1 else c2 in
+     and_ge (v :: tl)
+  | (VEqual v1 as c1) :: c2 :: tl
+  | c2 :: (VEqual v1 as c1) :: tl ->
+     if OASISVersion.comparator_apply v1 c2 then and_ge (c1 :: tl)
+     else Some(VAnd(c1, c2)) (* v1 does not satisfy v2, witness of falseness *)
+  | _ -> assert false
+
+let rec or_le = function
+  | VLesser v1 :: VLesser v2 :: tl ->
+     or_le (VLesser(max v1 v2) :: tl)
+  | VLesserEqual v1 :: VLesserEqual v2 :: tl ->
+     or_le (VLesserEqual(max v1 v2) :: tl)
+  | (VLesserEqual v1 as c1) :: (VLesser v2 as c2) :: tl
+  | (VLesser v2 as c2) :: (VLesserEqual v1 as c1) :: tl ->
+     let v = if OASISVersion.version_compare v1 v2 >= 0 then c1 else c2 in
+     or_le (v :: tl)
+  | (VEqual v1 as c1) :: c2 :: tl
+  | c2 :: (VEqual v1 as c1) :: tl ->
+     (match or_le (c2 :: tl) with
+      | None -> Some c1
+      | Some c2 -> if OASISVersion.comparator_apply v1 c2 then Some c2
+                   else Some(VOr(c1, c2))) (* v1 does not satisfy c2 *)
+  | _ -> assert false
+
+let rec or_ge = function
+  | [] -> None
+  | [v] -> Some v
+  | VGreater v1 :: VGreater v2 :: tl ->
+     or_ge (VGreater(min v1 v2) :: tl)
+  | VGreaterEqual v1 :: VGreaterEqual v2 :: tl ->
+     or_ge (VGreaterEqual(min v1 v2) :: tl)
+  | (VGreaterEqual v1 as c1) :: (VGreater v2 as c2) :: tl
+  | (VGreater v2 as c2) :: (VGreaterEqual v1 as c1) :: tl ->
+     let v = if OASISVersion.version_compare v1 v2 <= 0 then c1 else c2 in
+     or_ge (v :: tl)
+  | (VEqual v1 as c1) :: c2 :: tl
+  | c2 :: (VEqual v1 as c1) :: tl ->
+     (match or_ge (c2 :: tl) with
+      | None -> Some c1
+      | Some c2 -> if OASISVersion.comparator_apply v1 c2 then Some c2
+                   else Some(VOr(c1, c2))) (* v1 does not satisfy c2 *)
+  | _ -> assert false
+
+let and_other v1 = function
+  | [] -> v1
+  | v2 :: tl -> VAnd(v1, List.fold_left (fun a v -> VAnd(a, v)) v2 tl)
+
+let dummy_comparator =
+  VEqual(OASISVersion.version_of_string "")
+
 (* To be ported back to oasis eventually.
    At least internally, one would benefit from true and false values. *)
-let rec comparator_reduce = function
-  | VAnd (v1, v2) ->
-     let v1 = comparator_reduce v1
-     and v2 = comparator_reduce v2 in
-     (match v1, v2 with
-      | VGreater v1, VGreater v2 -> VGreater(max v1 v2)
-      | VGreaterEqual v1, VGreaterEqual v2 -> VGreaterEqual(max v1 v2)
-      | VGreaterEqual v1, VGreater v2
-      | VGreater v2, VGreaterEqual v1 ->
-         if OASISVersion.version_compare v1 v2 > 0 then VGreaterEqual v1
-         else VGreater v2
-      | VLesser v1, VLesser v2 -> VLesser(min v1 v2)
-      | VLesserEqual v1, VLesserEqual v2 -> VLesserEqual(min v1 v2)
-      | VLesserEqual v1, VLesser v2
-      | VLesser v2, VLesserEqual v1 ->
-         if OASISVersion.version_compare v1 v2 < 0 then VLesserEqual v1
-         else VLesser v2
-      | (VEqual v1 as c1), c2
-      | c2, (VEqual v1 as c1) ->
-         if OASISVersion.comparator_apply v1 c2 then c1
-         else VAnd (c1, c2) (* v1 does not satisfy v2, always false *)
-      | _ -> VAnd (v1, v2))
-  | VOr (v1, v2) ->
-     let v1 = comparator_reduce v1
-     and v2 = comparator_reduce v2 in
-     (match v1, v2 with
-      | VGreater v1, VGreater v2 -> VGreater(min v1 v2)
-      | VGreaterEqual v1, VGreaterEqual v2 -> VGreaterEqual(min v1 v2)
-      | VGreaterEqual v1, VGreater v2
-      | VGreater v2, VGreaterEqual v1 ->
-         if OASISVersion.version_compare v1 v2 <= 0 then VGreaterEqual v1
-         else VGreater v2
-      | VLesser v1, VLesser v2 -> VLesser(max v1 v2)
-      | VLesserEqual v1, VLesserEqual v2 -> VLesserEqual(max v1 v2)
-      | VLesserEqual v1, VLesser v2
-      | VLesser v2, VLesserEqual v1 ->
-         if OASISVersion.version_compare v1 v2 >= 0 then VLesserEqual v1
-         else VLesser v2
-      | (VEqual v1 as c1), c2
-      | c2, (VEqual v1 as c1) ->
-         if OASISVersion.comparator_apply v1 c2 then c2
-         else VOr (c1, c2) (* v1 does not satisfy c2 *)
-      | _ -> VOr (v1, v2))
+let rec comparator_reduce v =
+  match v with
+  | VAnd _ ->
+     let le, ge, other = collect_ands v in
+     let other = List.map comparator_reduce other in
+     (match and_ge ge, and_le le with
+      | Some v1, Some v2 -> and_other (VAnd(v1, v2)) other
+      | Some v, None | None, Some v -> and_other v other
+      | None, None ->
+         (match other with v :: tl -> and_other v tl
+                         | [] -> dummy_comparator))
+  | VOr _ ->
+     let le, ge, other = collect_ors v in
+     let other = List.map comparator_reduce other in
+     (match or_ge ge, or_le le with
+      | Some v1, Some v2 -> and_other (VAnd(v1, v2)) other
+      | Some v, None | None, Some v -> and_other v other
+      | None, None ->
+         (match other with v :: tl -> and_other v tl
+                         | [] -> dummy_comparator))
   | cmp -> cmp
 
 let string_of_comparator ?var v =
