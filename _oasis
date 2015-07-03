@@ -1,5 +1,5 @@
 #								-*-conf-*-
-OASISFormat: 0.3
+OASISFormat: 0.4
 Name:        oasis2opam
 Version:     0.6.0
 Synopsis:    Tool to convert OASIS metadata to OPAM package descriptions
@@ -12,7 +12,7 @@ Maintainers: Christophe Troestler <Christophe.Troestler@umons.ac.be>
 Categories:  http://build, http://install
 License:     GPL-3 with OCaml linking exception
 Homepage:    https://github.com/ocaml/oasis2opam
-Plugins:     META (0.3), StdFiles (0.3)
+Plugins:     META (0.4), StdFiles (0.4)
 FilesAB:     src/Conf.ml.ab
 
 Executable oasis2opam
