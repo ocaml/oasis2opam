@@ -152,9 +152,22 @@ let output_build_install t fmt flags opam_file_version =
   List.iter flag_enable (opam_for_flags flags);
   Format.fprintf fmt "@]]@\n\
                       [\"ocaml\" \"setup.ml\" \"-build\"]";
-  (* OPAM 1.2 has an "install" field *)
-  Format.fprintf fmt "@]@\n]@\n\
-                      install: [\"ocaml\" \"setup.ml\" \"-install\"]@\n";
+  Format.fprintf fmt "@]@\n]@\n";
+  let libs = BuildDepends.get_findlib_libraries flags pkg in
+  if libs <> [] then (
+    (* OPAM 1.2 has an "install" field.  Do not issue it unless there
+       is a library to remove (i.e. only binaries are installed). *)
+    Format.fprintf fmt "install: [\"ocaml\" \"setup.ml\" \"-install\"]@\n";
+    Format.fprintf fmt "@[<2>remove: [";
+    List.iter (fun l -> Format.fprintf fmt "@\n[\"ocamlfind\" \"remove\" %S]" l
+              ) libs;
+    Format.fprintf fmt "@]@\n]@\n";
+    if OASISVersion.version_compare opam_file_version v1_2 > 0 then (
+      Format.fprintf fmt "@[<2>libraries: [";
+      List.iter (fun l -> Format.fprintf fmt "@\n%S" l) libs;
+      Format.fprintf fmt "@]@\n]@\n";
+    );
+  );
   (* Build for testing. *)
   Format.fprintf fmt "@[<2>build-test: [@\n";
   if Tarball.needs_oasis t then
@@ -165,20 +178,7 @@ let output_build_install t fmt flags opam_file_version =
   Format.fprintf fmt "@]]@\n\
                       [\"ocaml\" \"setup.ml\" \"-build\"]@\n\
                       [\"ocaml\" \"setup.ml\" \"-test\"]\
-                      @]@\n]@\n";
-  let libs = BuildDepends.get_findlib_libraries flags pkg in
-  if libs <> [] then (
-    Format.fprintf fmt "@[<2>remove: [";
-    List.iter (fun l -> Format.fprintf fmt "@\n[\"ocamlfind\" \"remove\" %S]" l
-              ) libs;
-    Format.fprintf fmt "@]@\n]@\n";
-    if OASISVersion.version_compare opam_file_version v1_2 > 0 then (
-      Format.fprintf fmt "@[<2>libraries: [";
-      List.iter (fun l -> Format.fprintf fmt "@\n%S" l) libs;
-      Format.fprintf fmt "@]@\n]@\n";
-    );
-  )
-
+                      @]@\n]@\n"
 
 let opam_opam t flags opam_file_version =
   let pkg = Tarball.oasis t in
