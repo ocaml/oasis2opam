@@ -68,19 +68,19 @@ let binaries t ~flags =
     | _ -> bins (* skip other sections *) in
   List.fold_left gather_exec [] pkg.sections
 
-let write_bin t fh ~flags =
-  let bins = binaries t ~flags in
-  if bins <> [] then (
-      output_string fh "bin: [\n";
-      let output_bin (exec, name) =
-        let exec = Utils.escaped exec in
-        let name = Utils.escaped name in
-        fprintf fh "  \"?%s.byte\" {\"%s\"}\n" exec name;
-        fprintf fh "  \"?%s.native\" {\"%s\"}\n" exec name;
-      in
-      List.iter output_bin bins;
-      output_string fh "]\n";
-  )
+let write_bin t fh bins =
+  output_string fh "bin: [\n";
+  let output_bin (exec, name) =
+    let exec = Utils.escaped exec in
+    let name = Utils.escaped name in
+    fprintf fh "  \"?%s.byte\" {\"%s\"}\n" exec name;
+    fprintf fh "  \"?%s.native\" {\"%s\"}\n" exec name;
+  in
+  List.iter output_bin bins;
+  output_string fh "]\n"
 
 let opam t ~local flags =
-  with_install t ~local ~f:(fun fh -> write_bin t fh ~flags)
+  let bins = binaries t ~flags in
+  if bins <> [] then (
+    with_install t ~local ~f:(fun fh -> write_bin t fh bins)
+  )
