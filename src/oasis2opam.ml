@@ -180,15 +180,17 @@ let output_build_install t fmt flags opam_file_version =
                       [\"ocaml\" \"setup.ml\" \"-test\"]\
                       @]@\n]@\n"
 
-let opam_opam t flags opam_file_version =
+let opam_opam t flags ~local opam_file_version =
   let pkg = Tarball.oasis t in
   let fh = open_out(Filename.concat (Tarball.pkg_opam_dir t) "opam") in
   let fmt = Format.formatter_of_out_channel fh in
   Format.fprintf fmt "opam-version: \"%s\"@\n"
                  (OASISVersion.string_of_version opam_file_version);
-  Format.fprintf fmt "name: \"%s\"@\n" pkg.name;
-  Format.fprintf fmt "version: \"%s\"@\n"
-                 (OASISVersion.string_of_version pkg.version);
+  if local then (
+    Format.fprintf fmt "name: \"%s\"@\n" pkg.name;
+    Format.fprintf fmt "version: \"%s\"@\n"
+                   (OASISVersion.string_of_version pkg.version);
+  );
   output_maintainer fmt pkg;
   output_authors fmt pkg;
   Format.fprintf fmt "license: %S@\n" (OASISLicense.to_string pkg.license);
@@ -307,7 +309,7 @@ let () =
           exit 0);
   opam_descr t;
   opam_url t;
-  opam_opam t flags opam_file_version;
+  opam_opam t flags opam_file_version ~local:!local;
   opam_findlib t flags;
   Install.opam t flags ~local:!local;
   info (sprintf "OPAM directory %S created." dir)
