@@ -22,15 +22,38 @@
 
 (** Functions to write a <pkg>.install file. *)
 
+(* FIXME: This code is extremely naive.  This functionality should be
+   in an oasis plugin.  Until then, we can live with this... *)
+
 open Printf
 open OASISTypes
 open Utils
 
-
-let opam t ~local flags =
+let with_install t ~local ~f =
   let pkg = Tarball.oasis t in
-  (* FIXME: This is extremely naive.  This functionality should be in
-     an oasis plugin.  Until then, we can live with this... *)
+  let fname = pkg.name ^ ".install" in
+  let fh, close =
+    if local then
+      (* In local mode, the goal is to generate the opam files in
+           the repository itself. *)
+      open_out fname, close_out
+    else (
+      if Tarball.has_install t then (
+        info(sprintf "A %s.install file was found in the tarball.  Make \
+                      sure it containts the instructions below." pkg.name);
+        stdout, flush
+      )
+      else
+        let dir = Filename.concat (Tarball.pkg_opam_dir t) "files" in
+        (try Unix.mkdir dir 0o777
+         with Unix.Unix_error (Unix.EEXIST, _, _) -> ());
+        open_out(Filename.concat dir (pkg.name ^ ".install")), close_out
+    ) in
+  f fh;
+  close fh
+
+let binaries t ~flags =
+  let pkg = Tarball.oasis t in
   let gather_exec bins = function
     | Executable(cs, bs, es) ->
        if eval_conditional flags bs.bs_install then (
@@ -43,36 +66,21 @@ let opam t ~local flags =
        )
        else bins
     | _ -> bins (* skip other sections *) in
-  let bins = List.fold_left gather_exec [] pkg.sections in
+  List.fold_left gather_exec [] pkg.sections
 
+let write_bin t fh ~flags =
+  let bins = binaries t ~flags in
   if bins <> [] then (
-    let fname = pkg.name ^ ".install" in
-    let fh, close =
-      if local then
-        (* In local mode, the goal is to generate the opam files in
-           the repository itself. *)
-        open_out fname, close_out
-      else (
-        if Tarball.has_install t then (
-          info(sprintf "A %s.install file was found in the tarball.  Make \
-                        sure it containts the instructions below." pkg.name);
-          stdout, flush
-        )
-        else
-          let dir = Filename.concat (Tarball.pkg_opam_dir t) "files" in
-          (try Unix.mkdir dir 0o777
-           with Unix.Unix_error (Unix.EEXIST, _, _) -> ());
-          open_out(Filename.concat dir (pkg.name ^ ".install")), close_out
-      ) in
-    output_string fh "bin: [\n";
-    let output_bin (exec, name) =
-      let exec = Utils.escaped exec in
-      let name = Utils.escaped name in
-      fprintf fh "  \"?%s.byte\" {\"%s\"}\n" exec name;
-      fprintf fh "  \"?%s.native\" {\"%s\"}\n" exec name;
-    in
-    List.iter output_bin bins;
-    output_string fh "]\n";
-
-    close fh
+      output_string fh "bin: [\n";
+      let output_bin (exec, name) =
+        let exec = Utils.escaped exec in
+        let name = Utils.escaped name in
+        fprintf fh "  \"?%s.byte\" {\"%s\"}\n" exec name;
+        fprintf fh "  \"?%s.native\" {\"%s\"}\n" exec name;
+      in
+      List.iter output_bin bins;
+      output_string fh "]\n";
   )
+
+let opam t ~local flags =
+  with_install t ~local ~f:(fun fh -> write_bin t fh ~flags)
