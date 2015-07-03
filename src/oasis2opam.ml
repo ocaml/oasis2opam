@@ -134,12 +134,10 @@ let opam_for_flags flags =
 let output_build_install t fmt flags opam_file_version =
   let pkg = Tarball.oasis t in
   Format.fprintf fmt "@[<2>build: [@\n";
-  if not(Tarball.setup_ml_exists t) then
+  if not(Tarball.setup_ml_exists t) || Tarball.needs_oasis t then
     Format.fprintf fmt "[\"oasis\" \"setup\"]@\n";
   (* FIXME: convention: if a flag is the name of a Findlib package,
      enable it only if the corresponding OPAM package is installed. *)
-  if Tarball.needs_oasis t then
-    Format.fprintf fmt "[\"oasis\" \"setup\"]@\n";
   Format.fprintf fmt "@[<2>[\"ocaml\" \"setup.ml\" \"-configure\" \
                       \"--prefix\" prefix";
   let flag_enable (flag, pkgs) =
