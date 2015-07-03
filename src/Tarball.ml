@@ -243,3 +243,11 @@ let pkg_opam_dir t =
   )
   else
     t.pkg_opam_dir
+
+let has_install t =
+  let pkg = oasis t in
+  let re = Str.regexp("\\([^/]*/\\|\\)"
+                      ^ pkg.OASISTypes.name ^ "\\.install") in
+  try ignore(get_file t re);
+      true
+  with Not_found -> false

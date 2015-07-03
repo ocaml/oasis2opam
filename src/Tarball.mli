@@ -67,5 +67,8 @@ val pkg_opam_dir : t -> string
     package will be put.  May use the contents of the current working
     directory to improve the answer.  *)
 
+val has_install : t -> bool
+(** Says whether an <pkg>.install is present at the root of the
+    package tree. *)
 
 ;;
