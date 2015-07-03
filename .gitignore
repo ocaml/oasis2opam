@@ -10,3 +10,4 @@ oasis2opam.*/
 *.pdf
 src/Conf.ml
 opam/
+/oasis2opam.install
