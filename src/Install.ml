@@ -68,9 +68,9 @@ let binaries t ~flags =
   List.fold_left gather_exec [] (Tarball.oasis t).sections
 
 (* (Subset of) Possible locations for OPAM. *)
-type dest_dir = Lib | Libexec | Bin | Sbin | Share | Etc | Doc
+type dest_dir = Lib | Libexec | Bin | Sbin | Share | Etc | Doc | Man
 
-let all_dest_dirs = [Lib; Libexec; Bin; Sbin; Share; Etc; Doc]
+let all_dest_dirs = [Lib; Libexec; Bin; Sbin; Share; Etc; Doc; Man]
 
 let string_of_dest_dir = function
   | Lib -> "lib"
@@ -80,6 +80,7 @@ let string_of_dest_dir = function
   | Share -> "share"
   | Etc -> "etc"
   | Doc -> "doc"
+  | Man -> "man"
 
 let default_dest =
   (Share, "") (* the second component is the relative path *)
@@ -99,6 +100,7 @@ let classify_dest d =
   else if dest = "$sysconfdir" then (Etc, snd(split_slash dir))
                                       (* $sysconfdir/pkg/dir *)
   else if dest = "$docdir" then (Doc, dir)
+  else if dest = "$mandir" then (Man, dir)
   else (
     warn(sprintf "Target %S not recognized, installing in share/" dest);
     default_dest
