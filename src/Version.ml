@@ -63,6 +63,13 @@ let satisfy_both v1 v2 =
   | None, Some _ -> v2
   | Some v1, Some v2 -> Some(comparator_reduce (VAnd(v1, v2)))
 
+(* Satisfy any (optional) version constrains. *)
+let satisfy_any v1 v2 =
+  match v1, v2 with
+  | None, None -> None
+  | Some _, None -> v1
+  | None, Some _ -> v2
+  | Some v1, Some v2 -> Some(comparator_reduce (VOr(v1, v2)))
 
 let max v1 v2 =
   if OASISVersion.version_compare v1 v2 >= 0 then v1 else v2
@@ -193,6 +200,15 @@ let rec comparator_reduce v =
                          | [] -> dummy_comparator))
   | cmp -> cmp
 
+let rec complement = function
+  | VAnd (v1, v2) -> VOr (complement v1, complement v2)
+  | VOr (v1, v2) -> VAnd (complement v1, complement v2)
+  | VGreater v -> VLesserEqual v
+  | VEqual v -> VOr (VLesser v, VGreater v)
+  | VLesser v -> VGreaterEqual v
+  | VGreaterEqual v -> VLesser v
+  | VLesserEqual v -> VGreater v
+
 let string_of_comparator ?var v =
   (* If one wants to print the constraints, a short form is always
      desirable. *)
@@ -213,6 +229,8 @@ let no_constraint = { kind = Required;  cmp = None }
 let is_unconstrained c = c.kind = Required && c.cmp = None
 
 let is_test c = c.kind = Test
+
+let complement_reduce cmp = comparator_reduce (complement cmp)
 
 let string_of_constraint c =
   match c.kind, c.cmp with
