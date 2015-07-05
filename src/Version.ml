@@ -121,6 +121,8 @@ let rec and_ge = function
   | _ -> assert false
 
 let rec or_le = function
+  | [] -> None
+  | [v] -> Some v
   | VLesser v1 :: VLesser v2 :: tl ->
      or_le (VLesser(max v1 v2) :: tl)
   | VLesserEqual v1 :: VLesserEqual v2 :: tl ->
@@ -160,6 +162,10 @@ let and_other v1 = function
   | [] -> v1
   | v2 :: tl -> VAnd(v1, List.fold_left (fun a v -> VAnd(a, v)) v2 tl)
 
+let or_other v1 = function
+  | [] -> v1
+  | v2 :: tl -> VOr(v1, List.fold_left (fun a v -> VOr(a, v)) v2 tl)
+
 let dummy_comparator =
   VEqual(OASISVersion.version_of_string "")
 
@@ -180,10 +186,10 @@ let rec comparator_reduce v =
      let le, ge, other = collect_ors v in
      let other = List.map comparator_reduce other in
      (match or_ge ge, or_le le with
-      | Some v1, Some v2 -> and_other (VAnd(v1, v2)) other
-      | Some v, None | None, Some v -> and_other v other
+      | Some v1, Some v2 -> or_other (VOr(v1, v2)) other
+      | Some v, None | None, Some v -> or_other v other
       | None, None ->
-         (match other with v :: tl -> and_other v tl
+         (match other with v :: tl -> or_other v tl
                          | [] -> dummy_comparator))
   | cmp -> cmp
 
