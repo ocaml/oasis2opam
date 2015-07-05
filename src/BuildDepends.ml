@@ -439,7 +439,7 @@ let constrain_opam_package (pkgs, pkg_oasis_version) =
   let p =
     if List.for_all (fun (d,_,_) -> d = Only_findlib) p then p
     else
-      (* Suitable OPAM packages, remove the ones guessed from findlib. *)
+      (* Suitable OPAM packages exist, remove the ones guessed from findlib. *)
       List.filter (fun (d,_,_) -> d <> Only_findlib) p in
   List.map (fun (_, p, v) -> (p, v)) p
 
@@ -492,38 +492,40 @@ let output t fmt flags =
     Format.fprintf fmt "@\n# Included from _opam file@\n%s" opam_depends
   );
   Format.fprintf fmt "@]@\n]@\n";
-  let conflicts = if opt = [] then [] else (
-    (* Optional packages are a simple "or-formula".  Gather all packages
-       individually (but use the same data-structure as above). *)
-    let add_pkgs pkgs (l,v,_) =
-      List.fold_left (fun pk p -> ([p],v) :: pk) pkgs (Opam.of_findlib_warn l) in
-    let pkgs = List.fold_left add_pkgs [] opt in
-    let pkgs = simplify_packages pkgs in
-    let pkgs = constrain_opam_packages pkgs in
+  (* Optional packages are a simple "or-formula".  Gather all packages
+     individually (but use the same data-structure as above). *)
+  let add_pkgs pkgs (l,v,_) =
+    List.fold_left (fun pk p -> ([p],v) :: pk) pkgs (Opam.of_findlib_warn l) in
+  let opt_pkgs = List.fold_left add_pkgs [] opt in
+  let opt_pkgs = simplify_packages opt_pkgs in
+  let opt_pkgs = constrain_opam_packages opt_pkgs in
+  if opt_pkgs <> [] then (
     Format.fprintf fmt "@[<2>depopts: [";
     List.iter (fun p -> match strings_of_packages p with
-                     | [] -> ()
-                     | p0 :: tl ->
-                        Format.fprintf fmt "@\n%s" p0;
-                        List.iter (fun s -> Format.fprintf fmt "@;<1 2>%s" s) tl;
-              ) pkgs;
+                      | [] -> ()
+                      | p0 :: tl ->
+                         Format.fprintf fmt "@\n%s" p0;
+                         List.iter (fun s -> Format.fprintf fmt "@;<1 2>%s" s) tl;
+              ) opt_pkgs;
     Format.fprintf fmt "@]@\n]@\n";
-    List.fold_left (fun accum l ->
-        List.fold_left (fun accum (p,v) -> (p, Version.constraint_complement v) :: accum) accum l
-      ) [] pkgs
-    ) in
+  );
+  let opt_conflicts =
+    let add_cplt acc (p, v) = (p, Version.constraint_complement v) :: acc in
+    List.fold_left (fun accum l -> List.fold_left add_cplt accum l)
+                   [] opt_pkgs in
   (* Conflicts.  There are other packages (& version in case the
      conflict is or will be removed) which provide the same library. *)
   let libs = get_findlib_libraries flags pkg in
   let add_conflict c lib =
     let pkgs = Opam.of_findlib lib in
     let pkgs = List.filter (fun (p,_) -> p <> pkg.name) pkgs in
-    let pkgs = List.map (fun (p, v_set) ->
-        p, Version.Set.fold (fun v accum ->
-            Version.satisfy_any (Some (OASISVersion.VEqual v)) accum) v_set None) pkgs in
-    if pkgs <> [] then pkgs @ c
-    else c in
-  let conflicts = List.fold_left add_conflict conflicts libs in
+    (* Transform the set of versions into a constraint formula. *)
+    let any_version v acc =
+      Version.satisfy_any (Some (OASISVersion.VEqual v)) acc in
+    let to_constraint v_set = Version.Set.fold any_version v_set None in
+    let pkgs = List.map (fun (p, v_set) -> p, to_constraint v_set) pkgs in
+    pkgs @ c in
+  let conflicts = List.fold_left add_conflict opt_conflicts libs in
   let conflicts = List.filter (fun (_, v) -> v <> None) conflicts in
   if conflicts <> [] then (
     let conflicts =
