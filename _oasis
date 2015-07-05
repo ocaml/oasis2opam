@@ -23,17 +23,18 @@ Executable oasis2opam
   BuildTools:     ocamlbuild
   Install:        true
 
-Executable version_test
+Executable test_version
   Build$: flag(tests)
   Path: src/
-  MainIs: version_test.ml
-  BuildDepends:   oasis (>= 0.4.4), oasis.builtin-plugins, unix, str, qcheck (>= 0.4), qcheck.ounit, oUnit (>= 2.0.0)
+  MainIs: test_version.ml
+  BuildDepends:   oasis (>= 0.4.4), oasis.builtin-plugins, unix,
+                  str, qcheck (>= 0.4), qcheck.ounit, oUnit (>= 2.0.0)
   CompiledObject: best
   BuildTools:     ocamlbuild
   Install:        false
 
 Test version
-  Command: $version_test
+  Command: $test_version
 
 SourceRepository master
   Type:     git
