@@ -232,6 +232,10 @@ let is_test c = c.kind = Test
 
 let complement_reduce cmp = comparator_reduce (complement cmp)
 
+let constraint_complement c = match c.cmp with
+  | None -> None
+  | Some cmp -> Some (complement_reduce cmp)
+
 let string_of_constraint c =
   match c.kind, c.cmp with
   | Required, None -> ""
