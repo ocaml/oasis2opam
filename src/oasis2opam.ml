@@ -259,12 +259,15 @@ let opam_findlib t flags =
 let () =
   OASISBuiltinPlugins.init ();
   let local = ref false in
+  let always_yes = ref false in
   let version = ref false in
   let duplicates = ref false in
   let query_findlib = ref "" in
   let specs = [
     "--local", Arg.Set local,
     " create an opam dir for the _oasis in the current dir";
+    "-y", Arg.Set always_yes,
+    " answer \"y\" to all questions";
     "--duplicates", Arg.Set duplicates,
     " output a list of packages providing the same ocamlfind library";
     "--query", Arg.Set_string query_findlib,
@@ -304,8 +307,9 @@ let () =
   let dir = Tarball.pkg_opam_dir t in
   (try Unix.mkdir dir 0o777
    with Unix.Unix_error (Unix.EEXIST, _, _) ->
-        if !local && not(y_or_n "The existing opam dir is going to be \
-                                overwritten. Continue?" ~default:true) then
+        if !local && not !always_yes
+           && not(y_or_n "The existing opam dir is going to be \
+                         overwritten. Continue?" ~default:true) then
           exit 0);
   opam_descr t;
   opam_url t;

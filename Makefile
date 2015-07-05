@@ -44,7 +44,7 @@ test doc install uninstall reinstall: all
 	ocaml setup.ml -$@
 
 oasis2opam.install: all
-	./oasis2opam.native --local || ./oasis2opam.byte --local
+	./oasis2opam.native --local -y || ./oasis2opam.byte --local -y
 
 .PHONY: dist tar headache
 dist tar: $(DISTFILES)
