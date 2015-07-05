@@ -186,9 +186,11 @@ let opam_opam t flags ~local opam_file_version =
   let fmt = Format.formatter_of_out_channel fh in
   Format.fprintf fmt "opam-version: \"%s\"@\n"
                  (OASISVersion.string_of_version opam_file_version);
-  Format.fprintf fmt "name: \"%s\"@\n" pkg.name;
-  Format.fprintf fmt "version: \"%s\"@\n"
-                 (OASISVersion.string_of_version pkg.version);
+  if local then (
+    Format.fprintf fmt "name: \"%s\"@\n" pkg.name;
+    Format.fprintf fmt "version: \"%s\"@\n"
+                   (OASISVersion.string_of_version pkg.version);
+  );
   output_maintainer fmt pkg;
   output_authors fmt pkg;
   Format.fprintf fmt "license: %S@\n" (OASISLicense.to_string pkg.license);
