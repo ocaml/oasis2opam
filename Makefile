@@ -24,10 +24,12 @@ PKGNAME	    = $(shell oasis query name)
 PKGVERSION  = $(shell oasis query version)
 PKG_TARBALL = $(PKGNAME)-$(PKGVERSION).tar.gz
 
-DISTFILES   = README.md _oasis setup.ml _tags \
+DISTFILES   = README.md _oasis setup.ml _tags oasis2opam.install \
   Makefile $(wildcard $(addprefix src/, *.ml *.mli))
 
 .PHONY: all byte native configure doc test install uninstall reinstall
+
+default: all oasis2opam.install
 
 all byte native: configure
 	ocaml setup.ml -build
@@ -40,6 +42,9 @@ setup.ml: _oasis
 
 test doc install uninstall reinstall: all
 	ocaml setup.ml -$@
+
+oasis2opam.install: all
+	./oasis2opam.native --local || ./oasis2opam.byte --local
 
 .PHONY: dist tar headache
 dist tar: $(DISTFILES)
