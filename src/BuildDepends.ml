@@ -492,7 +492,7 @@ let output t fmt flags =
     Format.fprintf fmt "@\n# Included from _opam file@\n%s" opam_depends
   );
   Format.fprintf fmt "@]@\n]@\n";
-  if opt <> [] then (
+  let conflicts = if opt = [] then [] else (
     (* Optional packages are a simple "or-formula".  Gather all packages
        individually (but use the same data-structure as above). *)
     let add_pkgs pkgs (l,v,_) =
@@ -508,28 +508,34 @@ let output t fmt flags =
                         List.iter (fun s -> Format.fprintf fmt "@;<1 2>%s" s) tl;
               ) pkgs;
     Format.fprintf fmt "@]@\n]@\n";
-  );
+    List.fold_left (fun accum l ->
+        List.fold_left (fun accum (p,v) -> (p, Version.constraint_complement v) :: accum) accum l
+      ) [] pkgs
+    ) in
   (* Conflicts.  There are other packages (& version in case the
      conflict is or will be removed) which provide the same library. *)
   let libs = get_findlib_libraries flags pkg in
   let add_conflict c lib =
     let pkgs = Opam.of_findlib lib in
     let pkgs = List.filter (fun (p,_) -> p <> pkg.name) pkgs in
+    let pkgs = List.map (fun (p, v_set) ->
+        p, Version.Set.fold (fun v accum ->
+            Version.satisfy_any (Some (OASISVersion.VEqual v)) accum) v_set None) pkgs in
     if pkgs <> [] then pkgs @ c
     else c in
-  let conflicts = List.fold_left add_conflict [] libs in
+  let conflicts = List.fold_left add_conflict conflicts libs in
+  let conflicts = List.filter (fun (_, v) -> v <> None) conflicts in
   if conflicts <> [] then (
     let conflicts =
       make_unique ~cmp:(fun (p1,_) (p2,_) -> String.compare p1 p2)
-                  ~merge:(fun (p1,v1) (p2,v2) -> (p1, Version.Set.union v1 v2))
+                  ~merge:(fun (p1,v1) (p2,v2) -> (p1, Version.satisfy_any v1 v2))
                   conflicts in
     Format.fprintf fmt "@[<2>conflicts: [";
-    List.iter (fun (p,v_set) ->
-               let conflict_version v =
-                 Format.fprintf fmt "@\n%S {= %S}"
-                                p (OASISVersion.string_of_version v) in
-               Version.Set.iter conflict_version v_set;
-              ) conflicts;
+    List.iter (function
+        | p, Some v ->
+          Format.fprintf fmt "@\n%S {%s}" p (Version.string_of_comparator v)
+        | _, None -> ()
+      ) conflicts;
     Format.fprintf fmt "@]@\n]@\n";
   )
 ;;

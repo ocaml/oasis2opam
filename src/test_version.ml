@@ -23,7 +23,7 @@ let rec comparator_size = function
 
 let equivalent ~pp ~name ~size gen f is_equivalent =
   let pp (v1, v2) =
-    Printf.sprintf "\n(%s)\n<>\n(%s)" (pp v1) (pp v2) in
+    Printf.sprintf "\ninput:(%s)\noutput:(%s)" (pp v1) (pp v2) in
   let size (v, _) = size v in
   mk_test ~n:1000 ~pp ~name ~size Arbitrary.(gen >|= fun v -> v, f v)
           is_equivalent
@@ -36,11 +36,23 @@ let is_equivalent (a, b) =
     | Ok _ -> true
     | Failed _ | Error _ -> false
 
-let suite = QCheck_ounit.to_ounit_suite [
-                equivalent ~pp:Version.string_of_comparator
-                           ~name:"comparator_reduce"
-                           ~size:comparator_size arbitrary_version_comparator
-                           Version.comparator_reduce is_equivalent
-              ]
+let is_inverse (a, b) =
+  match check arbitrary_version
+              (fun v -> OASISVersion.comparator_apply v a
+                      = not (OASISVersion.comparator_apply v b)) with
+  | Ok _ -> true
+  | Failed _ | Error _ -> false
+
+let suite =
+  QCheck_ounit.to_ounit_suite [
+      equivalent ~pp:Version.string_of_comparator
+                 ~name:"comparator_reduce"
+                 ~size:comparator_size arbitrary_version_comparator
+                 Version.comparator_reduce is_equivalent;
+      equivalent ~pp:Version.string_of_comparator
+                 ~name:"complement_reduce"
+                 ~size:comparator_size arbitrary_version_comparator
+                 Version.complement_reduce is_inverse;
+    ]
 
 let () = OUnit2.run_test_tt_main ("version" >::: suite)
