@@ -157,7 +157,8 @@ let opam t ~local flags =
       let contents = Buffer.contents buf in
       match Tarball.install t with
       | Some install ->
-         if String.trim install <> contents then
+         (* FIXME: more clever comparison is desirable. *)
+         if String.trim install <> String.trim contents then
            warn(sprintf "A %s file was found in the tarball but its \
                          content differs from the generated one. Make sure \
                          it is compatible with:\n%s" fname contents)
