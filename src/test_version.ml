@@ -23,7 +23,7 @@ let rec comparator_size = function
 
 let equivalent ~pp ~name ~size gen f is_equivalent =
   let pp (v1, v2) =
-    Printf.sprintf "\n(%s)\n!=\n(%s)" (pp v1) (pp v2) in
+    Printf.sprintf "\n(%s)\n<>\n(%s)" (pp v1) (pp v2) in
   let size (v, _) = size v in
   mk_test ~n:1000 ~pp ~name ~size Arbitrary.(gen >|= fun v -> v, f v)
           is_equivalent
