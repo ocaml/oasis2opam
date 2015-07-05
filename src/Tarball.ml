@@ -153,7 +153,7 @@ let get_file t re =
     String.concat "\n" file_content
 
 
-let oasis_re = Str.regexp "\\(.*/\\|\\)_oasis$"
+let oasis_re = Str.regexp "\\([^/]*/\\|\\)_oasis$"
 
 let oasis t =
   match t.pkg with
@@ -162,7 +162,8 @@ let oasis t =
      check_exists t.tarball;
      let oasis =
        try get_file t oasis_re
-       with Not_found -> fatal_error "No file _oasis found in tarball\n." in
+       with Not_found ->
+         fatal_error "No file _oasis found at the root of the tarball\n." in
      let pkg = OASISParse.from_string !OASISContext.default oasis in
      t.pkg <- Some pkg;
      pkg
