@@ -473,6 +473,12 @@ let output t fmt flags =
   (* Required dependencies. *)
   let pkgs = List.map (fun (l,v,_) -> (Opam.of_findlib_warn l, v)) deps in
   let pkgs =
+    if get_findlib_libraries flags pkg = [] then
+      (* If no libraries are installed (only executables), all
+         dependencies are henceforth only required for build. *)
+      List.map (fun (p,v) -> (p, {v with Version.kind = Version.Build })) pkgs
+    else pkgs in
+  let pkgs =
     let v = if List.exists (fun (l,_,_) -> l = "bytes") deps then
               Version.satisfy_both pkg.findlib_version findlib_for_bytes
             else pkg.findlib_version in
