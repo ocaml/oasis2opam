@@ -23,6 +23,7 @@
 (** Some additional functions to work with [OASISVersion.t] *)
 
 open OASISVersion
+open Utils
 
 let to_string (p, v) =
   p ^ " (" ^ OASISVersion.string_of_version v ^ ")"
