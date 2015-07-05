@@ -25,32 +25,9 @@
 (* FIXME: This code is extremely naive.  This functionality should be
    in an oasis plugin.  Until then, we can live with this... *)
 
-open Printf
+open Format
 open OASISTypes
 open Utils
-
-let with_install t ~local ~f =
-  let pkg = Tarball.oasis t in
-  let fname = pkg.name ^ ".install" in
-  let fh, close =
-    if local then
-      (* In local mode, the goal is to generate the opam files in
-           the repository itself. *)
-      open_out fname, close_out
-    else (
-      if Tarball.has_install t then (
-        info(sprintf "A %s.install file was found in the tarball.  Make \
-                      sure it containts the instructions below." pkg.name);
-        stdout, flush
-      )
-      else
-        let dir = Filename.concat (Tarball.pkg_opam_dir t) "files" in
-        (try Unix.mkdir dir 0o777
-         with Unix.Unix_error (Unix.EEXIST, _, _) -> ());
-        open_out(Filename.concat dir (pkg.name ^ ".install")), close_out
-    ) in
-  f fh;
-  close fh
 
 let binaries t ~flags =
   let gather_exec bins = function
@@ -110,10 +87,10 @@ let classify_dest_opt = function
   | Some dest -> classify_dest dest
   | None -> default_dest
 
-let output_classified fh (local, (_, dir)) =
-  if dir = "" then fprintf fh "  %S\n" local
+let output_classified ppf (local, (_, dir)) =
+  if dir = "" then fprintf ppf "@\n%S" local
   else let dest = Filename.concat dir (Filename.basename local) in
-       fprintf fh "  %S {%S}\n" local dest
+       fprintf ppf "@\n%S {%S}" local dest
 
 (* Gather all DataFiles. *)
 let datafiles t ~flags =
@@ -133,35 +110,68 @@ let datafiles t ~flags =
   List.fold_left gather_data_files [] pkg.sections
 
 
-let write_bin fh bins data_bin =
+let write_bin ppf bins data_bin =
   if bins <> [] || data_bin <> [] then (
-    output_string fh "bin: [\n";
+    fprintf ppf "@[<2>bin: [";
     let output_bin (exec, name) =
       let exec = Utils.escaped exec in
       let name = Utils.escaped name in
-      fprintf fh "  \"?%s.byte\" {\"%s\"}\n" exec name;
-      fprintf fh "  \"?%s.native\" {\"%s\"}\n" exec name;
+      fprintf ppf "@\n\"?%s.byte\" {\"%s\"}" exec name;
+      fprintf ppf "@\n\"?%s.native\" {\"%s\"}" exec name;
     in
     List.iter output_bin bins;
-    List.iter (output_classified fh) data_bin;
-    output_string fh "]\n"
+    List.iter (output_classified ppf) data_bin;
+    fprintf ppf "@]@\n]@\n"
   )
 
-let write_datas fh datas =
+let write_datas ppf datas =
   let write_dest dest_dir =
     let datas = List.filter (fun (_, (d, _)) -> d = dest_dir) datas in
     if datas <> [] then (
-      fprintf fh "%s: [\n" (string_of_dest_dir dest_dir);
-      List.iter (output_classified fh) datas;
-      output_string fh "]\n"
+      fprintf ppf "@[<2>%s: [" (string_of_dest_dir dest_dir);
+      List.iter (output_classified ppf) datas;
+      fprintf ppf "@]@\n]@\n"
     ) in
   List.iter write_dest all_dest_dirs
 
 let opam t ~local flags =
+  let pkg = Tarball.oasis t in
   let bins = binaries t ~flags in
   let datas = datafiles t ~flags in
   let data_bin, datas = List.partition (fun (_, (d, _)) -> d = Bin) datas in
   if bins <> [] || datas <> [] then (
-    with_install t ~local ~f:(fun fh -> write_bin fh bins data_bin;
-                                      write_datas fh datas)
+    let fname = pkg.name ^ ".install" in
+    if local then
+      (* In local mode, the goal is to generate the opam files in
+         the repository itself. *)
+      let fh = open_out fname in
+      let ppf = Format.formatter_of_out_channel fh in
+      write_bin ppf bins data_bin;
+      write_datas ppf datas;
+      close_out fh
+    else (
+      let buf = Buffer.create 1024 in
+      let ppf = Format.formatter_of_buffer buf in
+      write_bin ppf bins data_bin;
+      write_datas ppf datas;
+      let contents = Buffer.contents buf in
+      match Tarball.install t with
+      | Some install ->
+         if String.trim install <> contents then
+           warn(sprintf "A %s file was found in the tarball but its \
+                         content differs from the generated one. Make sure \
+                         it is compatible with:\n%s" fname contents)
+      | None ->
+         let dir = Filename.concat (Tarball.pkg_opam_dir t) "files" in
+         let full_fname = Filename.concat dir fname in
+         warn(sprintf "No %s file was found at the root of the tarball, \
+                       so creating %s. Its is recommended to add \
+                       it to your repository though (\"oasis2opam --local\" \
+                       may help)." fname full_fname);
+         (try Unix.mkdir dir 0o777
+          with Unix.Unix_error (Unix.EEXIST, _, _) -> ());
+         let fh = open_out full_fname in
+         output_string fh contents;
+         close_out fh
+    )
   )
