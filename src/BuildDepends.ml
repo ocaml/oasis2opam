@@ -285,28 +285,40 @@ let has_flag_test =
     | _ -> false in
   fun choices -> List.exists is_test choices
 
-let findlib_of_section deps = function
-  | Library(cs, bs, _)
-  | Executable(cs, bs, _) ->
-     (* A dep. is compulsory of the lib/exec is built or installed *)
-     let cond flags =
-       let is_built = eval_conditional flags bs.bs_build
-       and is_installed = eval_conditional flags bs.bs_install in
-       if is_built && not is_installed then
-         warn (sprintf "Section %S is built but not installed \
-                        (missing Build$ flag?)" cs.cs_name);
-       is_built || is_installed in
-     let findlib deps = function
-       | FindlibPackage(lib, v) ->
-          (* If the Findlib library contains a dot, it is a
+let findlib_of_section_gen deps cs bs ~executable ~kind =
+  (* A dep. is compulsory of the lib/exec is built, regardless of
+     whether it is installed or not (we need the resources to perform
+     the compilation).  In some rare cases one may want an executable
+     for internal purposes only. *)
+  let cond flags =
+    let is_built = eval_conditional flags bs.bs_build
+    and is_installed = eval_conditional flags bs.bs_install in
+    if is_built && not is_installed then
+      warn (sprintf "Section %S is built but not installed \
+                     (missing Build$ flag?)" cs.cs_name);
+    is_built in
+  let findlib deps = function
+    | FindlibPackage(lib, v) ->
+       (* If the Findlib library contains a dot, it is a
              sub-library.  Only keep the main lib. *)
-          let lib = try String.sub lib 0 (String.index lib '.')
-                    with Not_found -> lib in
-          let kind = if has_flag_test bs.bs_build then Version.Test
-                     else Version.Required in
-          (lib, Version.constrain v ~kind, cond) :: deps
-       | InternalLibrary _ -> deps in
-     List.fold_left findlib deps bs.bs_build_depends
+       let lib = try String.sub lib 0 (String.index lib '.')
+                 with Not_found -> lib in
+       let kind = if has_flag_test bs.bs_build then Version.Test
+                  else kind in
+       (lib, Version.constrain v ~kind, cond) :: deps
+    | InternalLibrary _ -> deps in
+  List.fold_left findlib deps bs.bs_build_depends
+
+let findlib_of_section deps = function
+  | Library(cs, bs, _) ->
+     findlib_of_section_gen
+       deps cs bs ~executable:false ~kind:Version.Required
+  | Executable(cs, bs, _) ->
+     (* Dependencies for executables are "build" only (i.e. their
+        change does not trigger a recompilation of the executable).
+        FIXME: Is this smart? (fixed bug in a library) *)
+     findlib_of_section_gen
+       deps cs bs ~executable:true ~kind:Version.Build
   | _ -> deps
 
 let merge_findlib_depends =
@@ -472,12 +484,6 @@ let output t fmt flags =
 
   (* Required dependencies. *)
   let pkgs = List.map (fun (l,v,_) -> (Opam.of_findlib_warn l, v)) deps in
-  let pkgs =
-    if get_findlib_libraries flags pkg = [] then
-      (* If no libraries are installed (only executables), all
-         dependencies are henceforth only required for build. *)
-      List.map (fun (p,v) -> (p, {v with Version.kind = Version.Build })) pkgs
-    else pkgs in
   let pkgs =
     let v = if List.exists (fun (l,_,_) -> l = "bytes") deps then
               Version.satisfy_both pkg.findlib_version findlib_for_bytes
