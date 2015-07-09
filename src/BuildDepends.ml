@@ -285,18 +285,16 @@ let has_flag_test =
     | _ -> false in
   fun choices -> List.exists is_test choices
 
-let findlib_of_section_gen deps cs bs ~executable ~kind =
+let findlib_of_section_gen flags deps cs bs ~executable ~kind =
   (* A dep. is compulsory of the lib/exec is built, regardless of
      whether it is installed or not (we need the resources to perform
      the compilation).  In some rare cases one may want an executable
      for internal purposes only. *)
-  let cond flags =
-    let is_built = eval_conditional flags bs.bs_build
-    and is_installed = eval_conditional flags bs.bs_install in
-    if is_built && not is_installed then
-      warn (sprintf "Section %S is built but not installed \
-                     (missing Build$ flag?)" cs.cs_name);
-    is_built in
+  let is_built = eval_conditional flags bs.bs_build
+  and is_installed = eval_conditional flags bs.bs_install in
+  if is_built && not is_installed then
+    warn (sprintf "Section %S is built but not installed \
+                   (missing Build$ flag?)" cs.cs_name);
   let findlib deps = function
     | FindlibPackage(lib, v) ->
        (* If the Findlib library contains a dot, it is a
@@ -304,38 +302,38 @@ let findlib_of_section_gen deps cs bs ~executable ~kind =
        let lib = try String.sub lib 0 (String.index lib '.')
                  with Not_found -> lib in
        let kind = if has_flag_test bs.bs_build then Version.Test
+                  else if is_built && not is_installed then Version.Build
                   else kind in
-       (lib, Version.constrain v ~kind, cond) :: deps
+       (lib, Version.constrain v ~kind, is_built) :: deps
     | InternalLibrary _ -> deps in
   List.fold_left findlib deps bs.bs_build_depends
 
-let findlib_of_section deps = function
+let findlib_of_section flags deps = function
   | Library(cs, bs, _) ->
      findlib_of_section_gen
-       deps cs bs ~executable:false ~kind:Version.Required
+       flags deps cs bs ~executable:false ~kind:Version.Required
   | Executable(cs, bs, _) ->
      (* Dependencies for executables are "build" only (i.e. their
         change does not trigger a recompilation of the executable).
         FIXME: Is this smart? (fixed bug in a library) *)
      findlib_of_section_gen
-       deps cs bs ~executable:true ~kind:Version.Build
+       flags deps cs bs ~executable:true ~kind:Version.Build
   | _ -> deps
 
 let merge_findlib_depends =
   let merge (p1, v1, c1) (p2, v2, c2) =
     (* A dep. is compulsory as soon as any occurrence of it is. *)
-    let cond flags = c1 flags || c2 flags in
-    (p1, Version.satisfy_both_constraints v1 v2, cond) in
+    (p1, Version.satisfy_both_constraints v1 v2, c1 || c2) in
   fun d -> make_unique ~cmp:(fun (p1,_,_) (p2,_,_) -> String.compare p1 p2)
                     ~merge
                     d
 
 let get_all_findlib_dependencies flags pkg =
-  let deps = List.fold_left findlib_of_section [] pkg.sections in
+  let deps = List.fold_left (findlib_of_section flags) [] pkg.sections in
   let deps = merge_findlib_depends deps in
   (* Distinguish findlib packages that are going to be installed from
      optional ones. *)
-  let group1 (_,c,cond) = Version.is_test c || cond flags in
+  let group1 (_,c,compulsory) = Version.is_test c || compulsory in
   let deps_opt = List.partition group1 deps in
   deps_opt
 
