@@ -121,7 +121,7 @@ let write_bin ppf bins data_bin =
     in
     List.iter output_bin bins;
     List.iter (output_classified ppf) data_bin;
-    fprintf ppf "@]@\n]@\n"
+    fprintf ppf "@]@\n]@\n%!"
   )
 
 let write_datas ppf datas =
@@ -132,7 +132,8 @@ let write_datas ppf datas =
       List.iter (output_classified ppf) datas;
       fprintf ppf "@]@\n]@\n"
     ) in
-  List.iter write_dest all_dest_dirs
+  List.iter write_dest all_dest_dirs;
+  Format.pp_print_flush ppf
 
 let opam t ~local flags =
   let pkg = Tarball.oasis t in
@@ -144,7 +145,7 @@ let opam t ~local flags =
     if local then (
       (* In local mode, the goal is to generate the opam files in
          the repository itself. *)
-      info(sprintf "Create %s" fname);
+      info(sprintf "Create %S." fname);
       let fh = open_out fname in
       let ppf = Format.formatter_of_out_channel fh in
       write_bin ppf bins data_bin;
