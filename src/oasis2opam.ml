@@ -214,6 +214,9 @@ let opam_opam t flags ~local opam_file_version =
        Some(url_concat url "issues")
     | _, Some url when start_with url "https://github.com" ->
        Some(url_concat (Filename.chop_extension url) "issues")
+    | Some url, _ ->
+       info "Using the Homepage URL for bugreports as well";
+       Some url
     | _ -> None in
   (match bugreports with
    | Some url -> Format.fprintf fmt "bug-reports: %S@\n" url
