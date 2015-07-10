@@ -141,14 +141,16 @@ let opam t ~local flags =
   let data_bin, datas = List.partition (fun (_, (d, _)) -> d = Bin) datas in
   if bins <> [] || datas <> [] then (
     let fname = pkg.name ^ ".install" in
-    if local then
+    if local then (
       (* In local mode, the goal is to generate the opam files in
          the repository itself. *)
+      info(sprintf "Create %s" fname);
       let fh = open_out fname in
       let ppf = Format.formatter_of_out_channel fh in
       write_bin ppf bins data_bin;
       write_datas ppf datas;
       close_out fh
+    )
     else (
       let buf = Buffer.create 1024 in
       let ppf = Format.formatter_of_buffer buf in
