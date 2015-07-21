@@ -29,3 +29,8 @@ else
     ocaml setup.ml -build
     ocaml setup.ml -test
 fi
+
+opam pin add oasis2opam .
+oasis2opam --version
+opam remove oasis2opam
+[ -z "`which oasis2opam`" ] || exit 1
