@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/Chris00/oasis2opam.svg?branch=master)](https://travis-ci.org/Chris00/oasis2opam)
+
 oasis2opam
 ==========
 
