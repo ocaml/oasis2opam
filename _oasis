@@ -5,8 +5,8 @@ Version:     0.6.1
 Synopsis:    Tool to convert OASIS metadata to OPAM package descriptions
 Description: Generate OPAM files from _oasis.  Most of the metadata
   supported by oasis is translated to OPAM.  A simple .install file is
-  written to handle executables (until oasis supports the functionality
-  itself).
+  written to preserve Oasis setup.{ml,data,log} in order to be able to use
+  oasis for removal.
 Authors:     Christophe Troestler
 Maintainers: Christophe Troestler <Christophe.Troestler@umons.ac.be>
 Categories:  http://build, http://install

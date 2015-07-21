@@ -15,7 +15,7 @@ build: [
 ]
 install: ["ocaml" "setup.ml" "-install"]
 remove: [
-  ["ocaml" "%{etc}%/setup.ml" -C "%{etc}%" "-uninstall" ]
+  ["ocaml" "%{etc}%/oasis2opam/_oasis_remove_.ml" "%{etc}%/oasis2opam"]
 ]
 build-test: [
   ["oasis" "setup"]

@@ -131,7 +131,7 @@ let opam_for_flags flags =
        (n, pkgs) :: l in
   M.fold add_findlib flags []
 
-let output_build_install t fmt flags opam_file_version =
+let output_build_install t fmt flags opam_file_version ~remove_with_oasis =
   let pkg = Tarball.oasis t in
   Format.fprintf fmt "@[<2>build: [@\n";
   if not(Tarball.setup_ml_exists t) || Tarball.needs_oasis t then
@@ -154,13 +154,19 @@ let output_build_install t fmt flags opam_file_version =
                       [\"ocaml\" \"setup.ml\" \"-build\"]";
   Format.fprintf fmt "@]@\n]@\n";
   let libs = BuildDepends.get_findlib_libraries flags pkg in
-  if libs <> [] then (
+  if remove_with_oasis || libs <> [] then (
     (* OPAM 1.2 has an "install" field.  Do not issue it unless there
        is a library to remove (i.e. only binaries are installed). *)
     Format.fprintf fmt "install: [\"ocaml\" \"setup.ml\" \"-install\"]@\n";
     Format.fprintf fmt "@[<2>remove: [";
-    List.iter (fun l -> Format.fprintf fmt "@\n[\"ocamlfind\" \"remove\" %S]" l
-              ) libs;
+    if remove_with_oasis then
+      (* setup.{ml,data,log} were saved by OPAM during install. *)
+      Format.fprintf fmt "@\n@[<2>[\"ocaml\" \"%%{etc}%%/%s/%s\"@ \
+                          \"%%{etc}%%/%s\"@]]"
+                     pkg.name Install.remove_script pkg.name
+    else
+      List.iter (fun l -> Format.fprintf fmt "@\n[\"ocamlfind\" \"remove\" %S]" l
+                ) libs;
     Format.fprintf fmt "@]@\n]@\n";
     if OASISVersion.version_compare opam_file_version v1_2 > 0 then (
       Format.fprintf fmt "@[<2>libraries: [";
@@ -180,7 +186,7 @@ let output_build_install t fmt flags opam_file_version =
                       [\"ocaml\" \"setup.ml\" \"-test\"]\
                       @]@\n]@\n"
 
-let opam_opam t flags ~local opam_file_version =
+let opam_opam t flags ~local opam_file_version ~remove_with_oasis =
   let pkg = Tarball.oasis t in
   let fh = open_out(Filename.concat (Tarball.pkg_opam_dir t) "opam") in
   let fmt = Format.formatter_of_out_channel fh in
@@ -225,7 +231,7 @@ let opam_opam t flags ~local opam_file_version =
       (* warn "Consider adding \"BugReports:\" to your _oasis file" *)
       ());
   output_tags fmt pkg;
-  output_build_install t fmt flags opam_file_version;
+  output_build_install t fmt flags opam_file_version ~remove_with_oasis;
   if List.exists (function Doc _ -> true | _  -> false) pkg.sections then
     Format.fprintf fmt "build-doc: [ \"ocaml\" \"setup.ml\" \"-doc\" ]@\n";
   BuildDepends.output t fmt flags;
@@ -262,6 +268,7 @@ let opam_findlib t flags =
 let () =
   OASISBuiltinPlugins.init ();
   let local = ref false in
+  let install = ref false in
   let always_yes = ref false in
   let version = ref false in
   let duplicates = ref false in
@@ -269,6 +276,8 @@ let () =
   let specs = [
     "--local", Arg.Set local,
     " create an opam dir for the _oasis in the current dir";
+    "--install", Arg.Set install,
+    " use an <pkg>.install file to remove executables,... instead od oasis";
     "-y", Arg.Set always_yes,
     " answer \"y\" to all questions";
     "--duplicates", Arg.Set duplicates,
@@ -316,7 +325,11 @@ let () =
           exit 0);
   opam_descr t;
   opam_url t;
-  opam_opam t flags opam_file_version ~local:!local;
+  opam_opam t flags opam_file_version
+            ~local:!local ~remove_with_oasis:(not !install);
   opam_findlib t flags;
-  Install.opam t flags ~local:!local;
+  if !install then
+    Install.opam t flags ~local:!local
+  else
+    Install.oasis t;
   info (sprintf "OPAM directory %S created." dir)

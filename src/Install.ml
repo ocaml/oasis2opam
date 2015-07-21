@@ -135,47 +135,97 @@ let write_datas ppf datas =
   List.iter write_dest all_dest_dirs;
   Format.pp_print_flush ppf ()
 
-let opam t ~local flags =
+let with_install t ?warn:(want_warn=true) ~local f =
   let pkg = Tarball.oasis t in
-  let bins = binaries t ~flags in
-  let datas = datafiles t ~flags in
-  let data_bin, datas = List.partition (fun (_, (d, _)) -> d = Bin) datas in
-  if bins <> [] || datas <> [] then (
-    let fname = pkg.name ^ ".install" in
-    if local then (
-      (* In local mode, the goal is to generate the opam files in
-         the repository itself. *)
-      info(sprintf "Create %S." fname);
-      let fh = open_out fname in
-      let ppf = Format.formatter_of_out_channel fh in
-      write_bin ppf bins data_bin;
-      write_datas ppf datas;
-      close_out fh
-    )
-    else (
-      let buf = Buffer.create 1024 in
-      let ppf = Format.formatter_of_buffer buf in
-      write_bin ppf bins data_bin;
-      write_datas ppf datas;
-      let contents = Buffer.contents buf in
-      match Tarball.install t with
-      | Some install ->
-         (* FIXME: more clever comparison is desirable. *)
-         if String.trim install <> String.trim contents then
-           warn(sprintf "A %s file was found in the tarball but its \
-                         content differs from the generated one. Make sure \
-                         it is compatible with:\n%s" fname contents)
-      | None ->
-         let dir = Filename.concat (Tarball.pkg_opam_dir t) "files" in
-         let full_fname = Filename.concat dir fname in
+  let fname = pkg.name ^ ".install" in
+  if local then (
+    (* In local mode, the goal is to generate the opam files in
+       the repository itself. *)
+    info(sprintf "Create %S." fname);
+    let fh = open_out fname in
+    let ppf = Format.formatter_of_out_channel fh in
+    f ppf;
+    close_out fh
+  )
+  else (
+    let buf = Buffer.create 1024 in
+    let ppf = Format.formatter_of_buffer buf in
+    f ppf;
+    let contents = Buffer.contents buf in
+    match Tarball.install t with
+    | Some install ->
+       (* FIXME: more clever comparison is desirable. *)
+       if String.trim install <> String.trim contents then
+         warn(sprintf "A %s file was found in the tarball but its \
+                       content differs from the generated one. Make sure \
+                       it is compatible with:\n%s" fname contents)
+    | None ->
+       let dir = Filename.concat (Tarball.pkg_opam_dir t) "files" in
+       let full_fname = Filename.concat dir fname in
+       if want_warn then
          warn(sprintf "No %s file was found at the root of the tarball, \
                        so creating %s. Its is recommended to add \
                        it to your repository though (\"oasis2opam --local\" \
                        may help)." fname full_fname);
-         (try Unix.mkdir dir 0o777
-          with Unix.Unix_error (Unix.EEXIST, _, _) -> ());
-         let fh = open_out full_fname in
-         output_string fh contents;
-         close_out fh
-    )
+       (try Unix.mkdir dir 0o777
+        with Unix.Unix_error (Unix.EEXIST, _, _) -> ());
+       let fh = open_out full_fname in
+       output_string fh contents;
+       close_out fh
   )
+
+(* Add a file in the OPAM files/ subdir. *)
+let with_file t fname f =
+  let dir = Filename.concat (Tarball.pkg_opam_dir t) "files" in
+  let full_fname = Filename.concat dir fname in
+  (try Unix.mkdir dir 0o777
+   with Unix.Unix_error (Unix.EEXIST, _, _) -> ());
+  let fh = open_out full_fname in
+  let ppf = Format.formatter_of_out_channel fh in
+  f ppf;
+  Format.pp_print_flush ppf ();
+  close_out fh
+
+
+
+let opam t ~local flags =
+  let bins = binaries t ~flags in
+  let datas = datafiles t ~flags in
+  let data_bin, datas = List.partition (fun (_, (d, _)) -> d = Bin) datas in
+  if bins <> [] || datas <> [] then (
+    with_install t ~local
+                 (fun ppf ->
+                  write_bin ppf bins data_bin;
+                  write_datas ppf datas;
+                 )
+  )
+
+
+let remove_script = "_oasis_remove_.ml"
+
+(** Write an .install file to save oasis setup.* in order to be able
+    to also use oasis for removal.  Never put these files in the
+    repository itself because they are a hack. *)
+let oasis t =
+  with_install t ~local:false ~warn:false
+               (fun ppf ->
+                fprintf ppf "@[<2>etc: [@\n\
+                             \"setup.ml\"@\n\
+                             \"setup.data\"@\n\
+                             \"setup.log\"@\n\
+                             \"%s\"\
+                             @]@\n]@\n%!" remove_script;
+               );
+  (* oasis setup.ml looks for setup.data in the current working
+     directory and it is not clear there is a protable way to change
+     do that in OPAM.  This script must be in sync. with how it is
+     called from the "remove:" section. *)
+  let script =
+    "open Printf\n\n\
+     let () =\n  \
+     let dir = Sys.argv.(1) in\n  \
+     (try Sys.chdir dir\n   \
+     with _ -> eprintf \"Cannot change directory to %s\\n%!\" dir);\n  \
+     exit (Sys.command \"ocaml setup.ml -uninstall\")\n" in
+  with_file t remove_script
+            (fun ppf -> fprintf ppf "%s" script)
