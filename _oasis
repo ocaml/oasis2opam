@@ -18,7 +18,7 @@ FilesAB:     src/Conf.ml.ab
 Executable oasis2opam
   Path:           src/
   MainIs:         oasis2opam.ml
-  BuildDepends:   oasis (>= 0.4.4), oasis.builtin-plugins, unix, str
+  BuildDepends:   oasis (>= 0.4.4), oasis.builtin-plugins, unix, str, bytes
   CompiledObject: best
   BuildTools:     ocamlbuild
   Install:        true
@@ -27,7 +27,7 @@ Executable test_version
   Build$: flag(tests)
   Path: src/
   MainIs: test_version.ml
-  BuildDepends:   oasis (>= 0.4.4), oasis.builtin-plugins, unix,
+  BuildDepends:   oasis (>= 0.4.4), oasis.builtin-plugins, unix, bytes,
                   str, qcheck (>= 0.4), qcheck.ounit, oUnit (>= 2.0.0)
   CompiledObject: best
   BuildTools:     ocamlbuild

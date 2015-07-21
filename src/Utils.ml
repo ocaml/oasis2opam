@@ -118,11 +118,13 @@ let single_filename d =
 let read_whole_file fname =
   let buf = Buffer.create 1024 in
   let fh = open_in fname in
-  let chunk = String.create 1024 in
+  let chunk = Bytes.create 1024 in
   let len = ref 1 in (* enter loop *)
   while !len > 0 do
     len := input fh chunk 0 1024;
-    Buffer.add_substring buf chunk 0 !len
+    (* FIXME: Bytes.unsafe_to_string does not cost much and allows us
+       to ba compatible with earlier versions of OCaml. *)
+    Buffer.add_substring buf (Bytes.unsafe_to_string chunk) 0 !len
   done;
   close_in fh;
   Buffer.contents buf
