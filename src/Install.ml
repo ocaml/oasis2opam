@@ -133,7 +133,7 @@ let write_datas ppf datas =
       fprintf ppf "@]@\n]@\n"
     ) in
   List.iter write_dest all_dest_dirs;
-  Format.pp_print_flush ppf
+  Format.pp_print_flush ppf ()
 
 let opam t ~local flags =
   let pkg = Tarball.oasis t in
