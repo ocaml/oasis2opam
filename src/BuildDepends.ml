@@ -558,11 +558,12 @@ let output t fmt flags =
                   ~merge:(fun (p1,v1) (p2,v2) -> (p1, Version.satisfy_any v1 v2))
                   conflicts in
     Format.fprintf fmt "@[<2>conflicts: [";
-    List.iter (function
-        | p, Some v ->
-          Format.fprintf fmt "@\n%S {%s}" p (Version.string_of_comparator v)
-        | _, None -> ()
-      ) conflicts;
+    let print p v =
+      Format.fprintf fmt "@\n%S {%s}" p (Version.string_of_comparator v) in
+    let add_conflicts = function
+      | p, Some v -> Version.iter_disjunction v (print p)
+      | _, None -> () in
+    List.iter add_conflicts conflicts;
     Format.fprintf fmt "@]@\n]@\n";
   )
 ;;

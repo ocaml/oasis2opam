@@ -218,6 +218,12 @@ let string_of_comparator ?var v =
     | Some p -> String.trim p ^ " " in
   opam_string_of_comparator ~var (comparator_reduce v)
 
+let rec iter_disjunction c f = match c with
+  | VOr(c1, c2) -> iter_disjunction c1 f;
+                   iter_disjunction c2 f
+  | c -> f c
+
+
 type kind = Required | Build | Test
 
 type constraints = { kind: kind;
