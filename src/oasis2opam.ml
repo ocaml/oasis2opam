@@ -155,8 +155,6 @@ let output_build_install t fmt flags opam_file_version ~remove_with_oasis =
   Format.fprintf fmt "@]@\n]@\n";
   let libs = BuildDepends.get_findlib_libraries flags pkg in
   if remove_with_oasis || libs <> [] then (
-    (* OPAM 1.2 has an "install" field.  Do not issue it unless there
-       is a library to remove (i.e. only binaries are installed). *)
     Format.fprintf fmt "install: [\"ocaml\" \"setup.ml\" \"-install\"]@\n";
     Format.fprintf fmt "@[<2>remove: [";
     if remove_with_oasis then
@@ -277,7 +275,7 @@ let () =
     "--local", Arg.Set local,
     " create an opam dir for the _oasis in the current dir";
     "--install", Arg.Set install,
-    " use an <pkg>.install file to remove executables,... instead od oasis";
+    " use an <pkg>.install file to remove executables,... instead of oasis";
     "-y", Arg.Set always_yes,
     " answer \"y\" to all questions";
     "--duplicates", Arg.Set duplicates,
@@ -323,13 +321,17 @@ let () =
            && not(y_or_n "The existing opam dir is going to be \
                          overwritten. Continue?" ~default:true) then
           exit 0);
+  (* If there are only ocamlfind packages to remove, there is no need to
+     use oasis to perform the removal. *)
+  let remove_with_oasis =
+    not !install && (Install.binaries t ~flags <> []
+                    || Install.datafiles t ~flags <> []) in
   opam_descr t;
   opam_url t;
-  opam_opam t flags opam_file_version
-            ~local:!local ~remove_with_oasis:(not !install);
+  opam_opam t flags opam_file_version ~local:!local ~remove_with_oasis;
   opam_findlib t flags;
-  if !install then
-    Install.opam t flags ~local:!local
+  if remove_with_oasis then
+    Install.oasis t
   else
-    Install.oasis t;
+    Install.opam t flags ~local:!local;
   info (sprintf "OPAM directory %S created." dir)
