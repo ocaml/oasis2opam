@@ -200,8 +200,8 @@ let eval_conditional flags cond =
     try
       let t = M.find name flags in
       (* FIXME: how to eval flags?  See:
-         https://github.com/gildor478/oasis2debian/blob/master/src/Expr.ml
-         https://github.com/gildor478/oasis2debian/blob/master/src/Arch.ml
+         https://github.com/ocaml/oasis2debian/blob/master/src/Expr.ml
+         https://github.com/ocaml/oasis2debian/blob/master/src/Arch.ml
        *)
       string_of_bool(OASISExpr.choose (fun _ -> "false") t)
     with Not_found -> "false" in
