@@ -526,12 +526,12 @@ let output t fmt flags =
   let opt_pkgs = constrain_opam_packages opt_pkgs in
   if opt_pkgs <> [] then (
     Format.fprintf fmt "@[<2>depopts: [";
-    List.iter (fun p -> match strings_of_packages p with
-                      | [] -> ()
-                      | p0 :: tl ->
-                         Format.fprintf fmt "@\n%s" p0;
-                         List.iter (fun s -> Format.fprintf fmt "@;<1 2>%s" s) tl;
-              ) opt_pkgs;
+    (* Optional dependencies do not allow version constraints. *)
+    List.iter (function
+                | (p0, _) :: tl ->
+                   Format.fprintf fmt "@\n%s" p0;
+                   assert(List.for_all (fun (p,_) -> p = p0) tl)
+                | [] -> ()) opt_pkgs;
     Format.fprintf fmt "@]@\n]@\n";
   );
   let opt_conflicts =
