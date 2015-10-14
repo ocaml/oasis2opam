@@ -131,6 +131,8 @@ let opam_for_flags flags =
        (n, pkgs) :: l in
   M.fold add_findlib flags []
 
+let underscore_re = Str.regexp "_"
+
 let output_build_install t fmt flags opam_file_version ~remove_with_oasis =
   let pkg = Tarball.oasis t in
   Format.fprintf fmt "@[<2>build: [@\n";
@@ -141,6 +143,7 @@ let output_build_install t fmt flags opam_file_version ~remove_with_oasis =
   Format.fprintf fmt "@[<2>[\"ocaml\" \"setup.ml\" \"-configure\" \
                       \"--prefix\" prefix";
   let flag_enable (flag, pkgs) =
+    let flag = Str.global_replace underscore_re "-" flag in
     match pkgs with
     | [] -> ()
     | [p] -> Format.fprintf fmt "@\n\"--%%{%s:enable}%%-%s\"" p flag
