@@ -279,6 +279,12 @@ end
 (* Gather findlib packages
  ***********************************************************************)
 
+type findlib_deps = {
+    lib: OASISTypes.findlib_full;
+    constraints: Version.constraints;
+    is_built: bool;
+  }
+
 let has_flag_test =
   let is_test = function
     | (OASISExpr.EFlag "tests", _) -> true
@@ -319,7 +325,7 @@ let findlib_of_section_gen flags pkg deps cs bs ~executable ~kind =
        let kind = if has_flag_test bs.bs_build then Version.Test
                   else if is_built && not is_installed then Version.Build
                   else kind in
-       (lib, Version.constrain v ~kind, is_built) :: deps
+       {lib; constraints = Version.constrain v ~kind; is_built} :: deps
     | InternalLibrary _ -> deps in
   List.fold_left findlib deps bs.bs_build_depends
 
@@ -336,10 +342,13 @@ let findlib_of_section flags pkg deps = function
   | _ -> deps
 
 let merge_findlib_depends =
-  let merge (p1, v1, c1) (p2, v2, c2) =
+  let merge d1 d2 =
     (* A dep. is compulsory as soon as any occurrence of it is. *)
-    (p1, Version.satisfy_both_constraints v1 v2, c1 || c2) in
-  fun d -> make_unique ~cmp:(fun (p1,_,_) (p2,_,_) -> String.compare p1 p2)
+    { lib = d1.lib;
+      constraints = Version.satisfy_both_constraints d1.constraints
+                                                     d2.constraints;
+      is_built = d1.is_built || d2.is_built} in
+  fun d -> make_unique ~cmp:(fun d1 d2 -> String.compare d1.lib d2.lib)
                     ~merge
                     d
 
@@ -348,18 +357,18 @@ let get_all_findlib_dependencies flags pkg =
   let deps = merge_findlib_depends deps in
   (* Distinguish findlib packages that are going to be installed from
      optional ones. *)
-  let group1 (_,c,compulsory) = Version.is_test c || compulsory in
+  let group1 d = Version.is_test d.constraints || d.is_built in
   let deps_opt = List.partition group1 deps in
   deps_opt
 
 (** Tell whether "compiler-libs" is a mandatory dependency. *)
 let on_compiler_libs flags pkg =
   let deps, _ = get_all_findlib_dependencies flags pkg in
-  List.exists (fun (lib,_,_) -> lib = "compiler-libs") deps
+  List.exists (fun d -> d.lib = "compiler-libs") deps
 
 (** [get_findlib_dependencies flags pkg] return the Findlib libraries
     on which [pkg] depends.  Sort them as compulsory and optional. *)
-let does_not_come_with_OCaml (p,_,_) = not(S.mem p findlib_with_ocaml)
+let does_not_come_with_OCaml d = not(S.mem d.lib findlib_with_ocaml)
 let get_findlib_dependencies flags pkg =
   let deps, opt = get_all_findlib_dependencies flags pkg in
   (* Filter out the packages coming with OCaml *)
@@ -496,9 +505,10 @@ let output t fmt flags =
   let deps, opt = get_findlib_dependencies flags pkg in
 
   (* Required dependencies. *)
-  let pkgs = List.map (fun (l,v,_) -> (Opam.of_findlib_warn l, v)) deps in
   let pkgs =
-    let v = if List.exists (fun (l,_,_) -> l = "bytes") deps then
+    List.map (fun d -> (Opam.of_findlib_warn d.lib, d.constraints)) deps in
+  let pkgs =
+    let v = if List.exists (fun d -> d.lib = "bytes") deps then
               Version.satisfy_both pkg.findlib_version findlib_for_bytes
             else pkg.findlib_version in
     let c = Version.(constrain v ~kind:Build) in
@@ -519,8 +529,9 @@ let output t fmt flags =
   Format.fprintf fmt "@]@\n]@\n";
   (* Optional packages are a simple "or-formula".  Gather all packages
      individually (but use the same data-structure as above). *)
-  let add_pkgs pkgs (l,v,_) =
-    List.fold_left (fun pk p -> ([p],v) :: pk) pkgs (Opam.of_findlib_warn l) in
+  let add_pkgs pkgs d =
+    List.fold_left (fun pk p -> ([p], d.constraints) :: pk)
+                   pkgs (Opam.of_findlib_warn d.lib) in
   let opt_pkgs = List.fold_left add_pkgs [] opt in
   let opt_pkgs = simplify_packages opt_pkgs in
   let opt_pkgs = constrain_opam_packages opt_pkgs in
