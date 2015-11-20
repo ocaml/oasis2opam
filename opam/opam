@@ -27,6 +27,7 @@ depends: [
   "base-bytes" {build}
   "base-unix" {build}
   "oasis" {build & >= "0.4.4"}
+  "ocamlbuild" {build}
   "ocamlfind" {build & >= "1.5"}
   "ounit" {test & >= "2.0.0"}
   "qcheck" {test & >= "0.4"}

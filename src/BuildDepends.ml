@@ -38,6 +38,10 @@ let findlib_with_ocaml =
               "ocamlbuild"; "stdlib"; "str"; "compiler-libs" ] in
   List.fold_left (fun s e -> S.add e s) S.empty pkg
 
+let buildtools_with_ocaml =
+  let names = [ "ocamllex"; "ocamlyacc" ] in
+  List.fold_left (fun s e -> S.add e s) S.empty names
+
 let findlib_for_bytes =
   Some(OASISVersion.(VGreaterEqual(version_of_string "1.5")))
 
@@ -227,6 +231,14 @@ module Opam = struct
          error(sprintf "OPAM package %S not found!" lib);
          [lib, Version.Set.empty]
 
+  let of_buildtool_warn (name: string) : (string * Version.Set.t) list =
+    try
+      let _v_set = package_versions_exn name in (* or raise Not_found *)
+      [name, Version.Set.empty]
+    with Not_found ->
+      warn(sprintf "No OPAM package found for buildtool %S!" name);
+      []
+
   (* Tells whether the two lists of packages are equal.  Do not care
      about versions.  Assume the list are sorted as [of_findlib]
      provides them.  *)
@@ -279,11 +291,34 @@ end
 (* Gather findlib packages
  ***********************************************************************)
 
-type findlib_deps = {
-    lib: OASISTypes.findlib_full;
+type dependency = {
+    name: dependency_name;
     constraints: Version.constraints;
-    is_built: bool;
+    compulsory: bool;
   }
+ and dependency_name =
+   | Lib of OASISTypes.findlib_full
+   | BuildTool of OASISTypes.name
+
+let dependency_compare d1 d2 = match d1.name, d2.name with
+  | (Lib n1 | BuildTool n1), (Lib n2 | BuildTool n2) -> String.compare n1 n2
+
+(* Assume [dependency_compare d1 d2 = 0]. *)
+let dependency_merge d1 d2 =
+  (* If any is a library, this takes precedence. *)
+  let name = match d1.name, d2.name with
+    | BuildTool _, BuildTool _ | Lib _, _ -> d1.name
+    | BuildTool _, Lib _ -> d2.name in
+  let constraints =
+    Version.satisfy_both_constraints d1.constraints d2.constraints in
+  (* A dep. is compulsory as soon as any occurrence of it is. *)
+  let compulsory = d1.compulsory || d2.compulsory in
+  { name;  constraints;  compulsory }
+
+let opam_of_dependency_warn d =
+  match d.name with
+  | Lib lib -> Opam.of_findlib_warn lib
+  | BuildTool name -> Opam.of_buildtool_warn name
 
 let has_flag_test =
   let is_test = function
@@ -316,7 +351,7 @@ let findlib_of_section_gen flags pkg deps cs bs ~executable ~kind =
        that is built, no need to issue a warning. *)
     warn (sprintf "Section %S is built but not installed (missing Build$ \
                    flag of BuildTools declaration?)" cs.cs_name);
-  let findlib deps = function
+  let findlib_depends deps = function
     | FindlibPackage(lib, v) ->
        (* If the Findlib library contains a dot, it is a
              sub-library.  Only keep the main lib. *)
@@ -325,11 +360,21 @@ let findlib_of_section_gen flags pkg deps cs bs ~executable ~kind =
        let kind = if has_flag_test bs.bs_build then Version.Test
                   else if is_built && not is_installed then Version.Build
                   else kind in
-       {lib; constraints = Version.constrain v ~kind; is_built} :: deps
+       { name = Lib lib;
+         constraints = Version.constrain v ~kind;
+         compulsory = is_built } :: deps
     | InternalLibrary _ -> deps in
-  List.fold_left findlib deps bs.bs_build_depends
+  let findlib_tools deps = function
+    | ExternalTool name ->
+       { name = BuildTool name;
+         constraints = Version.constrain None ~kind:Version.Build;
+         compulsory = is_built } :: deps
+    | InternalExecutable _ -> deps in
+  let deps = List.fold_left findlib_depends deps bs.bs_build_depends in
+  let deps = List.fold_left findlib_tools deps bs.bs_build_tools in
+  deps
 
-let findlib_of_section flags pkg deps = function
+let dependencies_of_section flags pkg deps = function
   | Library(cs, bs, _) ->
      findlib_of_section_gen
        flags pkg deps cs bs ~executable:false ~kind:Version.Required
@@ -341,36 +386,33 @@ let findlib_of_section flags pkg deps = function
        flags pkg deps cs bs ~executable:true ~kind:Version.Build
   | _ -> deps
 
-let merge_findlib_depends =
-  let merge d1 d2 =
-    (* A dep. is compulsory as soon as any occurrence of it is. *)
-    { lib = d1.lib;
-      constraints = Version.satisfy_both_constraints d1.constraints
-                                                     d2.constraints;
-      is_built = d1.is_built || d2.is_built} in
-  fun d -> make_unique ~cmp:(fun d1 d2 -> String.compare d1.lib d2.lib)
-                    ~merge
-                    d
+let merge_dependencies =
+  fun d -> make_unique ~cmp:dependency_compare
+                     ~merge:dependency_merge
+                     d
 
-let get_all_findlib_dependencies flags pkg =
-  let deps = List.fold_left (findlib_of_section flags pkg) [] pkg.sections in
-  let deps = merge_findlib_depends deps in
+let get_all_dependencies flags pkg =
+  let deps =
+    List.fold_left (dependencies_of_section flags pkg) [] pkg.sections in
+  let deps = merge_dependencies deps in
   (* Distinguish findlib packages that are going to be installed from
      optional ones. *)
-  let group1 d = Version.is_test d.constraints || d.is_built in
+  let group1 d = Version.is_test d.constraints || d.compulsory in
   let deps_opt = List.partition group1 deps in
   deps_opt
 
 (** Tell whether "compiler-libs" is a mandatory dependency. *)
 let on_compiler_libs flags pkg =
-  let deps, _ = get_all_findlib_dependencies flags pkg in
-  List.exists (fun d -> d.lib = "compiler-libs") deps
+  let deps, _ = get_all_dependencies flags pkg in
+  List.exists (fun d -> d.name = Lib "compiler-libs") deps
 
-(** [get_findlib_dependencies flags pkg] return the Findlib libraries
+(** [get_dependencies flags pkg] return the Findlib libraries and build tools
     on which [pkg] depends.  Sort them as compulsory and optional. *)
-let does_not_come_with_OCaml d = not(S.mem d.lib findlib_with_ocaml)
-let get_findlib_dependencies flags pkg =
-  let deps, opt = get_all_findlib_dependencies flags pkg in
+let does_not_come_with_OCaml d = match d.name with
+  | Lib lib -> not(S.mem lib findlib_with_ocaml)
+  | BuildTool name -> not(S.mem name buildtools_with_ocaml)
+let get_dependencies flags pkg =
+  let deps, opt = get_all_dependencies flags pkg in
   (* Filter out the packages coming with OCaml *)
   (List.filter does_not_come_with_OCaml deps,
    List.filter does_not_come_with_OCaml opt)
@@ -408,7 +450,9 @@ let simplify_packages =
   (* List of dependencies repeated => satisfy both constraints. *)
   let merge (p1, v1) (p2, v2) =
     (Opam.intersect_pkgs p1 p2, Version.satisfy_both_constraints v1 v2) in
-  fun pkgs -> make_unique ~cmp ~merge pkgs
+  fun pkgs ->
+  let pkgs = List.filter (fun (p, _) -> p <> []) pkgs in
+  make_unique ~cmp ~merge pkgs
 
 type suitable_opam =
   | Only_findlib (* No OPAM package satisfying the constraints was found *)
@@ -502,13 +546,13 @@ let string_of_packages pkgs_version =
 
 let output t fmt flags =
   let pkg = Tarball.oasis t in
-  let deps, opt = get_findlib_dependencies flags pkg in
+  let deps, opt = get_dependencies flags pkg in
 
   (* Required dependencies. *)
+  let pkgs = List.map (fun d -> (opam_of_dependency_warn d, d.constraints))
+                      deps in
   let pkgs =
-    List.map (fun d -> (Opam.of_findlib_warn d.lib, d.constraints)) deps in
-  let pkgs =
-    let v = if List.exists (fun d -> d.lib = "bytes") deps then
+    let v = if List.exists (fun d -> d.name = Lib "bytes") deps then
               Version.satisfy_both pkg.findlib_version findlib_for_bytes
             else pkg.findlib_version in
     let c = Version.(constrain v ~kind:Build) in
@@ -531,7 +575,7 @@ let output t fmt flags =
      individually (but use the same data-structure as above). *)
   let add_pkgs pkgs d =
     List.fold_left (fun pk p -> ([p], d.constraints) :: pk)
-                   pkgs (Opam.of_findlib_warn d.lib) in
+                   pkgs (opam_of_dependency_warn d) in
   let opt_pkgs = List.fold_left add_pkgs [] opt in
   let opt_pkgs = simplify_packages opt_pkgs in
   let opt_pkgs = constrain_opam_packages opt_pkgs in
