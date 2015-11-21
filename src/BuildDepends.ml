@@ -612,6 +612,12 @@ let output t fmt flags =
       make_unique ~cmp:(fun (p1,_) (p2,_) -> String.compare p1 p2)
                   ~merge:(fun (p1,v1) (p2,v2) -> (p1, Version.satisfy_any v1 v2))
                   conflicts in
+    (* Simplify the constraints. *)
+    let conflicts =
+      List.map (function
+                | (_, None) as p -> p
+                | (p, Some c) -> (p, Some(Version.comparator_reduce c))
+               ) conflicts in
     Format.fprintf fmt "@[<2>conflicts: [";
     let print p v =
       Format.fprintf fmt "@\n%S {%s}" p (Version.string_of_comparator v) in
