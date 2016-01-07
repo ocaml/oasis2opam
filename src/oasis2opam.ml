@@ -213,7 +213,9 @@ let opam_opam t flags ~local opam_file_version ~remove_with_oasis =
     | Some src ->
        Format.fprintf fmt "dev-repo: %S@\n" src.src_repo_location;
        Some src.src_repo_location
-   | None -> None in
+    | None ->
+       warn "Please add a \"SourceRepository\" section to your _oasis file";
+       None in
   (* Bug reports URL — with Github heuristics *)
   let bugreports =
     match pkg.homepage, source_repository with
