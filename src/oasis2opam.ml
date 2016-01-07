@@ -278,7 +278,7 @@ let () =
     "--local", Arg.Set local,
     " create an opam dir for the _oasis in the current dir";
     "--install", Arg.Set install,
-    " use an <pkg>.install file to remove executables,... instead of oasis";
+    " use an <pkg>.install file to remove executables,... instead of oasis (not recommended)";
     "-y", Arg.Set always_yes,
     " answer \"y\" to all questions";
     "--duplicates", Arg.Set duplicates,
