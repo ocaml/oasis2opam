@@ -35,7 +35,7 @@ let opam_base_packages = [ "bigarray", "base-bigarray";
 (* Findlib libraries coming with OCaml — no OPAM package. *)
 let findlib_with_ocaml =
   let pkg = [ "dynlink"; "graphics"; "labltk"; "num";
-              "ocamlbuild"; "stdlib"; "str"; "compiler-libs" ] in
+              "stdlib"; "str"; "compiler-libs" ] in
   List.fold_left (fun s e -> S.add e s) S.empty pkg
 
 let buildtools_with_ocaml =
