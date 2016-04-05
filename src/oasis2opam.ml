@@ -123,7 +123,7 @@ let output_tags fmt pkg =
    and OPAM packages providing them (without version number).  *)
 let opam_for_flags flags =
   let add_findlib n _ l =
-    match BuildDepends.Opam.of_findlib n with
+    match Opam.of_findlib n with
     | [] -> l
     | pkgs ->
        let pkgs = make_unique (List.map fst pkgs)
@@ -304,7 +304,7 @@ let () =
     exit 0;
   );
   if !query_findlib <> "" then (
-    (match BuildDepends.Opam.of_findlib !query_findlib with
+    (match Opam.of_findlib !query_findlib with
      | [] -> printf "%S is NOT provided by an OPAM package.\n" !query_findlib
      | pkgs -> let pkgs = BuildDepends.constrain_opam_package
                             (pkgs, Version.no_constraint) in
