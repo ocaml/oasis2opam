@@ -27,7 +27,8 @@ type t
 val get : string -> t
 (** Get the tarball corresponding to an URL (http or https) or a local
     file.  The call [get ""] assumes that the current working
-    directory is the root of the project. *)
+    directory is the root of the project (instead of being in a
+    tarball). *)
 
 val no_tarball : t -> bool
 (** [no_tarball t] is [true] if [t] was created from the current
@@ -70,5 +71,6 @@ val pkg_opam_dir : t -> string
 val install : t -> string option
 (** Return the content of <pkg>.install if it is present at the root
     of the package tree. *)
+
 
 ;;

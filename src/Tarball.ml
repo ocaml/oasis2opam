@@ -142,16 +142,19 @@ let get url =
     t_of_tarball ~url:"" url
 
 
-(* Return the content of the file in the tarball or raise [Not_found]
-   if it does not exist. *)
+(* Return the content of the file in the tarball or [None]. *)
 let get_file t re =
-  let path = List.find (fun s -> Str.string_match re s 0) t.content in
-  if no_tarball t then
-    read_whole_file path
-  else
-    let file_content = tar ["--to-stdout"; "--extract"; path] t.tarball in
-    String.concat "\n" file_content
-
+  try
+    (* FIXME: List.find may raise Not_found.  Match "exception
+       Not-found" when OCaml < 4.02 can be dropped. *)
+    let path = List.find (fun s -> Str.string_match re s 0) t.content in
+    if no_tarball t then
+      Some(read_whole_file path)
+    else
+      let file_content = tar ["--to-stdout"; "--extract"; path] t.tarball in
+      Some(String.concat "\n" file_content)
+  with Not_found ->
+    None
 
 let oasis_re = Str.regexp "\\([^/]*/\\|\\)_oasis$"
 
@@ -160,13 +163,13 @@ let oasis t =
   | Some pkg -> pkg
   | None ->
      check_exists t.tarball;
-     let oasis =
-       try get_file t oasis_re
-       with Not_found ->
-         fatal_error "No file _oasis found at the root of the tarball\n." in
-     let pkg = OASISParse.from_string !OASISContext.default oasis in
-     t.pkg <- Some pkg;
-     pkg
+     match get_file t oasis_re with
+     | None ->
+        fatal_error "No file _oasis found at the root of the tarball\n."
+     | Some oasis ->
+        let pkg = OASISParse.from_string !OASISContext.default oasis in
+        t.pkg <- Some pkg;
+        pkg
 
 
 let opam_re = Str.regexp "\\(.*/\\|\\)_opam$"
@@ -176,7 +179,8 @@ let opam_file t =
   | Some o -> o
   | None ->
      check_exists t.tarball;
-     let opam = try get_file t opam_re with Not_found -> "" in
+     let opam = match get_file t opam_re with Some o -> o
+                                            | None -> "" in
      t.opam <- Some opam;
      opam
 
@@ -213,7 +217,8 @@ let needs_oasis t =
   | Some b -> b
   | None ->
      check_exists t.tarball;
-     let setup = try get_file t setup_re with Not_found -> "" in
+     let setup = match get_file t setup_re with Some s -> s
+                                              | None -> "" in
      let need =
        if setup = "" then true
        else (
@@ -249,5 +254,4 @@ let install t =
   let pkg = oasis t in
   let re = Str.regexp("\\([^/]*/\\|\\)"
                       ^ pkg.OASISTypes.name ^ "\\.install") in
-  try Some(get_file t re)
-  with Not_found -> None
+  get_file t re
