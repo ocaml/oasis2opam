@@ -72,5 +72,9 @@ val install : t -> string option
 (** Return the content of <pkg>.install if it is present at the root
     of the package tree. *)
 
+val file_contents : t -> string -> string option
+(** [file_contents t fname] return [Some contents] if the file [fname]
+    exists (relative to the root of the tarball) or [None] if the file
+    doesn't exist. *)
 
 ;;
