@@ -23,5 +23,5 @@
 # OASIS_START
 # OASIS_STOP
 
-true: annot, safe_string
+true: annot, bin_annot, safe_string
 #true: debug
