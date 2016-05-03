@@ -153,35 +153,49 @@ let escaped s =
 let space_re = Str.regexp "[ \t\n\r]+"
 
 (* TODO: implement the more sophisticated TeX version? *)
-let output_paragraph fh ?(width=70) text =
+let gen_out_paragraph out_char out_string newline ?(width=70) text =
   match Str.split space_re text with
   | [] -> ()
-  | [w] -> output_string fh w
+  | [w] -> out_string w
   | w0 :: words ->
-     output_string fh w0;
+     out_string w0;
      let space_left = ref(width - String.length w0) in
      let output_word w =
        let len_w = String.length w in
        if 1 + len_w > !space_left then (
-         output_char fh '\n';
+         out_string newline;
          space_left := width - len_w;
        )
        else (
          space_left := !space_left - 1 - len_w;
-         output_char fh ' ';
+         out_char ' ';
        );
-       output_string fh w in
+       out_string w in
      List.iter output_word words
 
 (* Assume that blanks lines delimit paragraphs (which we do not want
    to merge together). *)
-let output_wrapped fh ?width (text: OASISText.t) =
+let gen_out_wrapped out_char out_string ?(ofs=0) ?width (text: OASISText.t) =
   let open OASISText in
+  let newline = "\n" ^ String.make ofs ' ' in
   let output_elt = function
-    | Para p -> output_paragraph fh ?width p; output_char fh '\n'
-    | Verbatim s -> output_string fh s; output_char fh '\n'
-    | BlankLine -> output_string fh "\n\n" in
+    | Para p -> gen_out_paragraph out_char out_string newline ?width p;
+                out_char '\n'
+    | Verbatim s -> out_string s; out_char '\n'
+    | BlankLine -> out_string "\n\n" in
   List.iter output_elt text
+
+let output_wrapped fh ?width text =
+  gen_out_wrapped (output_char fh) (output_string fh) ?width text
+
+let wrapped_sprintf ?(ofs=0) ?width fmt =
+  let newline = "\n" ^ String.make ofs ' ' in
+  Printf.ksprintf (fun s ->
+      let b = Buffer.create 256 in
+      gen_out_paragraph (Buffer.add_char b) (Buffer.add_string b) newline
+        ?width s;
+      Buffer.contents b
+    ) fmt
 
 (* Evaluate OASIS conditonals
  ***********************************************************************)

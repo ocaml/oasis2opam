@@ -159,15 +159,17 @@ let with_install t ?warn:(want_warn=true) ~local f =
     | Some install ->
        (* FIXME: more clever comparison is desirable. *)
        if String.trim install <> String.trim contents then
-         warn(sprintf "A %s file was found in the tarball but its \
-                       content differs from the generated one. Make sure \
-                       it is compatible with:\n%s" fname contents)
+         warn(wrapped_sprintf ~ofs:3
+                "A %s file was found in the tarball but its \
+                 content differs from the generated one. Make sure \
+                 it is compatible with:\n%s" fname contents)
     | None ->
        if want_warn then
-         warn(sprintf "No %s file was found at the root of the tarball, \
-                       so creating %s. Its is recommended to add \
-                       it to your repository though (\"oasis2opam --local\" \
-                       may help)." fname full_fname);
+         warn(wrapped_sprintf ~ofs:3
+                "No %S file was found at the root of the tarball, \
+                 so creating %S. Its is recommended to add \
+                 it to your repository though (\"oasis2opam --local\" \
+                 may help)." fname full_fname);
        (try Unix.mkdir dir 0o777
         with Unix.Unix_error (Unix.EEXIST, _, _) -> ());
        let fh = open_out full_fname in
