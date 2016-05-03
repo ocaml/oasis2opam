@@ -135,9 +135,10 @@ let write_datas ppf datas =
   List.iter write_dest all_dest_dirs;
   Format.pp_print_flush ppf ()
 
-let with_install t ?warn:(want_warn=true) ~local f =
-  let pkg = Tarball.oasis t in
-  let fname = pkg.name ^ ".install" in
+(** Add a file in the OPAM files/ subdir.  If we are running in local
+    mode, the file is added to the root of the project (avoid
+    polluting the opam metadata). *)
+let with_file t fname ?warn:(want_warn=true) ~local f =
   let dir = Filename.concat (Tarball.pkg_opam_dir t) "files" in
   let full_fname = Filename.concat dir fname in
   if local then (
@@ -155,7 +156,7 @@ let with_install t ?warn:(want_warn=true) ~local f =
     let ppf = Format.formatter_of_buffer buf in
     f ppf;
     let contents = Buffer.contents buf in
-    match Tarball.install t with
+    match Tarball.file_contents t fname with
     | Some install ->
        (* FIXME: more clever comparison is desirable. *)
        if String.trim install <> String.trim contents then
@@ -177,18 +178,10 @@ let with_install t ?warn:(want_warn=true) ~local f =
        close_out fh
   )
 
-(* Add a file in the OPAM files/ subdir. *)
-let with_file t fname f =
-  let dir = Filename.concat (Tarball.pkg_opam_dir t) "files" in
-  let full_fname = Filename.concat dir fname in
-  (try Unix.mkdir dir 0o777
-   with Unix.Unix_error (Unix.EEXIST, _, _) -> ());
-  let fh = open_out full_fname in
-  let ppf = Format.formatter_of_out_channel fh in
-  f ppf;
-  Format.pp_print_flush ppf ();
-  close_out fh
-
+let with_install t ?warn ~local f =
+  let pkg = Tarball.oasis t in
+  let fname = pkg.name ^ ".install" in
+  with_file t fname ?warn ~local f
 
 
 let opam t ~local flags =
@@ -230,5 +223,5 @@ let oasis t ~local =
      (try Sys.chdir dir\n   \
      with _ -> eprintf \"Cannot change directory to %s\\n%!\" dir);\n  \
      exit (Sys.command \"ocaml setup.ml -uninstall\")\n" in
-  with_file t remove_script
+  with_file t remove_script ~local ~warn:true
             (fun ppf -> fprintf ppf "%s" script)

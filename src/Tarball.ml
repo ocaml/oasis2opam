@@ -250,12 +250,6 @@ let pkg_opam_dir t =
   else
     t.pkg_opam_dir
 
-let install t =
-  let pkg = oasis t in
-  let re = Str.regexp("\\([^/]*/\\|\\)"
-                      ^ pkg.OASISTypes.name ^ "\\.install") in
-  get_file t re
-
 let file_contents t fname =
   let re = Str.regexp("\\([^/]*/\\|\\)" ^ Str.quote fname) in
   get_file t re
