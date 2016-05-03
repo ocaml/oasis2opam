@@ -138,9 +138,12 @@ let write_datas ppf datas =
 let with_install t ?warn:(want_warn=true) ~local f =
   let pkg = Tarball.oasis t in
   let fname = pkg.name ^ ".install" in
+  let dir = Filename.concat (Tarball.pkg_opam_dir t) "files" in
+  let full_fname = Filename.concat dir fname in
   if local then (
-    (* In local mode, the goal is to generate the opam files in
-       the repository itself. *)
+    if Sys.file_exists full_fname then
+      warn(sprintf "A file %S was found.  Please remove it." full_fname);
+    (* In local mode, generate the opam files in the repository itself. *)
     info(sprintf "Create %S." fname);
     let fh = open_out fname in
     let ppf = Format.formatter_of_out_channel fh in
@@ -160,8 +163,6 @@ let with_install t ?warn:(want_warn=true) ~local f =
                        content differs from the generated one. Make sure \
                        it is compatible with:\n%s" fname contents)
     | None ->
-       let dir = Filename.concat (Tarball.pkg_opam_dir t) "files" in
-       let full_fname = Filename.concat dir fname in
        if want_warn then
          warn(sprintf "No %s file was found at the root of the tarball, \
                        so creating %s. Its is recommended to add \
@@ -206,8 +207,8 @@ let remove_script = "_oasis_remove_.ml"
 (** Write an .install file to save oasis setup.* in order to be able
     to also use oasis for removal.  Never put these files in the
     repository itself because they are a hack. *)
-let oasis t =
-  with_install t ~local:false ~warn:false
+let oasis t ~local =
+  with_install t ~local ~warn:true
                (fun ppf ->
                 fprintf ppf "@[<2>etc: [@\n\
                              \"setup.ml\"@\n\

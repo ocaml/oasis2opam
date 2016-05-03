@@ -336,7 +336,7 @@ let () =
   opam_opam t flags opam_file_version ~local:!local ~remove_with_oasis;
   opam_findlib t flags;
   if remove_with_oasis then
-    Install.oasis t
+    Install.oasis t ~local:!local
   else
     Install.opam t flags ~local:!local;
   info (sprintf "OPAM directory %S created." dir)
