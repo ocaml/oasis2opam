@@ -350,7 +350,7 @@ let output t fmt flags =
   let libs = get_findlib_libraries flags pkg in
   let add_conflict c lib =
     let pkgs = Opam.of_findlib lib in
-    let pkgs = List.filter (fun (p,_) -> p <> pkg.name) pkgs in
+    let pkgs = List.filter (fun (p,_) -> p <> pkg.OASISTypes.name) pkgs in
     (* Transform the set of versions into a constraint formula. *)
     let any_version v acc =
       Version.satisfy_any (Some (OASISVersion.VEqual v)) acc in
