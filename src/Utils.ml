@@ -173,17 +173,26 @@ let gen_out_paragraph out_char out_string newline ?(width=70) text =
        out_string w in
      List.iter output_word words
 
-(* Assume that blanks lines delimit paragraphs (which we do not want
-   to merge together). *)
-let gen_out_wrapped out_char out_string ?(ofs=0) ?width (text: OASISText.t) =
+let rec gen_out_wrapped out_char out_string ?width
+          (text: OASISText.t) =
   let open OASISText in
-  let newline = "\n" ^ String.make ofs ' ' in
-  let output_elt = function
-    | Para p -> gen_out_paragraph out_char out_string newline ?width p;
+  match text with
+  | Para p :: BlankLine :: tl | Para p :: (_ :: _ as tl) ->
+     gen_out_paragraph out_char out_string "\n" ?width p;
+     out_string "\n\n";
+     gen_out_wrapped out_char out_string ?width tl
+  | [Para p] -> gen_out_paragraph out_char out_string "\n" ?width p;
                 out_char '\n'
-    | Verbatim s -> out_string s; out_char '\n'
-    | BlankLine -> out_string "\n\n" in
-  List.iter output_elt text
+  | Verbatim s :: ([] as tl) | Verbatim s :: (Verbatim _ :: _ as tl) ->
+     (* Verbatim text is scanned line per line. *)
+     out_string s; out_char '\n';
+     gen_out_wrapped out_char out_string ?width tl
+  | Verbatim s :: BlankLine :: tl | Verbatim s :: (Para _ :: _ as tl) ->
+     out_string s; out_string "\n\n";
+     gen_out_wrapped out_char out_string ?width tl
+  | BlankLine :: tl -> out_string "\n\n";
+                       gen_out_wrapped out_char out_string ?width tl
+  | [] -> ()
 
 let output_wrapped fh ?width text =
   gen_out_wrapped (output_char fh) (output_string fh) ?width text

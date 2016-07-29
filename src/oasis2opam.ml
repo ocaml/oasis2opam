@@ -34,9 +34,10 @@ let opam_descr t =
   let pkg = Tarball.oasis t in
   let fh = open_out(Filename.concat (Tarball.pkg_opam_dir t) "descr") in
   output_string fh pkg.synopsis;
-  output_char fh '\n';
   (match pkg.description with
-   | Some d -> output_wrapped fh d; output_char fh '\n'
+   | Some d ->
+      output_string fh "\n\n";
+      output_wrapped fh d
    | None -> warn "Consider adding \"Description:\" to your _oasis file");
   close_out fh
 
