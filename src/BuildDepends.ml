@@ -65,6 +65,13 @@ let dependency_merge d1 d2 =
     Version.satisfy_both_constraints d1.constraints d2.constraints in
   (* A dep. is compulsory as soon as any occurrence of it is. *)
   let compulsory = d1.compulsory || d2.compulsory in
+  let constraints =
+    let open Version in
+    if not compulsory && (is_test d1.constraints || is_test d2.constraints) then
+      {constraints with kind = Test}
+    else
+      constraints
+  in
   { name;  constraints;  compulsory }
 
 let opam_of_dependency_warn d =
@@ -126,6 +133,16 @@ let findlib_of_section_gen flags pkg deps cs bs ~executable ~kind =
   let deps = List.fold_left findlib_tools deps bs.bs_build_tools in
   deps
 
+let findlib_of_test_section_gen flags pkg deps tst =
+  List.fold_left
+    (fun deps -> function
+       | ExternalTool name ->
+         { name = BuildTool name;
+           constraints = Version.constrain None ~kind:Version.Test;
+           compulsory = false } :: deps
+       | InternalExecutable _ -> deps)
+    deps tst.test_tools
+
 let dependencies_of_section flags pkg deps = function
   | Library(cs, bs, _) ->
      findlib_of_section_gen
@@ -136,6 +153,7 @@ let dependencies_of_section flags pkg deps = function
         FIXME: Is this smart? (fixed bug in a library) *)
      findlib_of_section_gen
        flags pkg deps cs bs ~executable:true ~kind:Version.Build
+  | Test (_, tst) -> findlib_of_test_section_gen flags pkg deps tst
   | _ -> deps
 
 let merge_dependencies =
