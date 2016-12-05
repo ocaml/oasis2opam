@@ -133,7 +133,7 @@ let findlib_of_section_gen flags pkg deps cs bs ~executable ~kind =
   let deps = List.fold_left findlib_tools deps bs.bs_build_tools in
   deps
 
-let findlib_of_test_section_gen flags pkg deps tst =
+let findlib_of_test_section_gen deps tst =
   List.fold_left
     (fun deps -> function
        | ExternalTool name ->
@@ -153,7 +153,7 @@ let dependencies_of_section flags pkg deps = function
         FIXME: Is this smart? (fixed bug in a library) *)
      findlib_of_section_gen
        flags pkg deps cs bs ~executable:true ~kind:Version.Build
-  | Test (_, tst) -> findlib_of_test_section_gen flags pkg deps tst
+  | Test (_, tst) -> findlib_of_test_section_gen deps tst
   | _ -> deps
 
 let merge_dependencies =
