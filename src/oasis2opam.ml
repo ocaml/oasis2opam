@@ -130,7 +130,7 @@ let opam_for_flags flags =
        let pkgs = make_unique (List.map fst pkgs)
                               ~cmp:String.compare ~merge:(fun p _ -> p) in
        (n, pkgs) :: l in
-  M.fold add_findlib flags []
+  StringMap.fold add_findlib flags []
 
 let underscore_re = Str.regexp "_"
 

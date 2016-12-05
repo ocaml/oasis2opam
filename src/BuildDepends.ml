@@ -408,4 +408,4 @@ let output_duplicates fh =
        let pkgs = String.concat ", " (List.map Opam.to_string pkgs) in
        fprintf fh "%s -> %s\n" lib pkgs in
   fprintf fh "Findlib -> multiple OPAM\n";
-  M.iter output Opam.findlib
+  StringMap.iter output Opam.findlib

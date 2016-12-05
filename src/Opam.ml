@@ -43,9 +43,9 @@ let findlib_re =
   Str.regexp "\"ocamlfind\" +\"remove\" +\"\\([a-zA-Z0-9_.-]+\\)\""
 
 let add_is_provided_by m ~findlib ~opam =
-  let pkgs_list = try opam :: (M.find findlib !m)
+  let pkgs_list = try opam :: (StringMap.find findlib !m)
                   with Not_found -> [opam] in
-  m := M.add findlib pkgs_list !m
+  m := StringMap.add findlib pkgs_list !m
 
 (* Scan the content of [s] and add to [m] all Findlib libraries found. *)
 let rec add_all_findlib m opam s ofs =
@@ -58,9 +58,9 @@ let rec add_all_findlib m opam s ofs =
   with Not_found -> ()
 
 let add_opam_version packages (opam_pkg: string) version =
-  let v_set = try Version.Set.add version (M.find opam_pkg !packages)
+  let v_set = try Version.Set.add version (StringMap.find opam_pkg !packages)
               with Not_found -> Version.Set.singleton version in
-  packages := M.add opam_pkg v_set !packages
+  packages := StringMap.add opam_pkg v_set !packages
 
 (* Keep the set of versions for each package. *)
 let merge_versions pkgs =
@@ -82,8 +82,8 @@ let findlib, packages =
   if m_cache < Conf.compilation_time || m_cache < m_state then (
     (* Need to browse the opam dir again. *)
     eprintf "Synchronizing the list of available packages... %!";
-    let m = ref M.empty in
-    let pkgs = ref M.empty in
+    let m = ref StringMap.empty in
+    let pkgs = ref StringMap.empty in
     let rec add_of_dir dir =
       if (try Sys.is_directory dir with _ -> false) then
         Array.iter (add_opam dir) (Sys.readdir dir)
@@ -129,16 +129,16 @@ let findlib, packages =
     (* For OPAM < 1.1, the sub-dir "opam" was used: *)
     add_of_dir (Filename.concat root "opam");
 
-    m := M.add "findlib" [("ocamlfind", Version.Set.empty)] !m;
-    List.iter (fun (fl, p) -> m := M.add fl [(p, Version.Set.empty)] !m)
+    m := StringMap.add "findlib" [("ocamlfind", Version.Set.empty)] !m;
+    List.iter (fun (fl, p) -> m := StringMap.add fl [(p, Version.Set.empty)] !m)
       opam_base_packages;
     (* Camlp4 was split out of the standard distribution.  A dummy
          OPAM package was created for older compilersn, thus one can
          consider that all versions of the OPAM "camlp4" package have
          the lib (which is what [Version.Set.empty] means) even though
          it is not detected automatically. *)
-    m := M.add "camlp4" ["camlp4", Version.Set.empty] !m;
-    let findlib = M.map (fun pkgs -> merge_versions pkgs) !m in
+    m := StringMap.add "camlp4" ["camlp4", Version.Set.empty] !m;
+    let findlib = StringMap.map (fun pkgs -> merge_versions pkgs) !m in
     (* Cache *)
     let to_be_cached = (findlib, !pkgs) in
     let fh = open_out_bin cache in
@@ -157,7 +157,7 @@ let findlib, packages =
 
 (** Return the set of available versions for the OPAM package [pkg]
     or raise [Not_found]. *)
-let package_versions_exn (pkg: string) = M.find pkg packages
+let package_versions_exn (pkg: string) = StringMap.find pkg packages
 
 let package_versions pkg =
   try package_versions_exn pkg with Not_found -> Version.Set.empty
@@ -168,7 +168,7 @@ let package_versions pkg =
     for "camlp4" are set by the compiler).  See
     https://github.com/ocaml/opam/issues/573 *)
 let of_findlib (lib: string) =
-  try M.find lib findlib (* <> [] *) with Not_found -> []
+  try StringMap.find lib findlib (* <> [] *) with Not_found -> []
 
 let to_string (p, v) =
   p ^ " (" ^ Version.Set.to_string v ^ ")"

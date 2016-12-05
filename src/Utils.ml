@@ -23,7 +23,7 @@
 open Printf
 open OASISTypes
 
-module M = Map.Make(String)
+module StringMap = Map.Make(String)
 
 (* Compatibility with OCaml 3.12 *)
 module String = struct
@@ -206,14 +206,14 @@ let wrapped_sprintf ?(ofs=0) ?width fmt =
       Buffer.contents b
     ) fmt
 
-(* Evaluate OASIS conditonals
+(* Evaluate OASIS conditionals
  ***********************************************************************)
 
 let get_flags sections =
   let add m = function
-    | Flag(cs, f) -> M.add cs.cs_name f.flag_default m
+    | Flag(cs, f) -> StringMap.add cs.cs_name f.flag_default m
     | _ -> m in
-  List.fold_left add M.empty sections
+  List.fold_left add StringMap.empty sections
 
 
 let eval_conditional flags cond =
@@ -221,7 +221,7 @@ let eval_conditional flags cond =
      must be built), then the dependency is compulsory. *)
   let eval_tst name =
     try
-      let t = M.find name flags in
+      let t = StringMap.find name flags in
       (* FIXME: how to eval flags?  See:
          https://github.com/ocaml/oasis2debian/blob/master/src/Expr.ml
          https://github.com/ocaml/oasis2debian/blob/master/src/Arch.ml
