@@ -9,7 +9,7 @@ Description: Generate OPAM files from _oasis.  Most of the metadata
   oasis for removal.
 Authors:     Christophe Troestler
 Maintainers: Christophe Troestler <Christophe.Troestler@umons.ac.be>
-Categories:  http://build, http://install
+Tags:        build, install
 License:     GPL-3 with OCaml linking exception
 Homepage:    https://github.com/ocaml/oasis2opam
 Plugins:     META (0.4), StdFiles (0.4)
@@ -18,7 +18,7 @@ FilesAB:     src/Conf.ml.ab
 Executable oasis2opam
   Path:           src/
   MainIs:         oasis2opam.ml
-  BuildDepends:   oasis (>= 0.4.4), oasis.builtin-plugins, unix, str, bytes
+  BuildDepends:   oasis (>= 0.4.8), oasis.builtin-plugins, unix, str, bytes
   CompiledObject: best
   BuildTools:     ocamlbuild
   Install:        true

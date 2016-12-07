@@ -105,10 +105,7 @@ let get_potential_clibs pkg =
 
 
 let output_tags fmt pkg =
-  let tag cat =
-    (* FIXME: how do we generate tags from categories? *)
-    Filename.basename cat in
-  let tags = List.map tag pkg.categories in
+  let tags = pkg.tags in
   (* Add "clib:<lib>" to tags for each C library detected.  This
      serves as an indication that these libraries may need to be
      installed first. *)
