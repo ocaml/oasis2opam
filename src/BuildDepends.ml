@@ -46,7 +46,6 @@ let findlib_for_bytes =
 type dependency = {
     name: dependency_name;
     constraints: Version.constraints;
-    compulsory: bool;
   }
  and dependency_name =
    | Lib of OASISTypes.findlib_full
@@ -63,27 +62,33 @@ let dependency_merge d1 d2 =
     | BuildTool _, Lib _ -> d2.name in
   let constraints =
     Version.satisfy_both_constraints d1.constraints d2.constraints in
-  (* A dep. is compulsory as soon as any occurrence of it is. *)
-  let compulsory = d1.compulsory || d2.compulsory in
-  let constraints =
-    let open Version in
-    if not compulsory && (is_test d1.constraints || is_test d2.constraints) then
-      {constraints with kind = Test}
-    else
-      constraints
-  in
-  { name;  constraints;  compulsory }
+  { name;  constraints }
 
 let opam_of_dependency_warn d =
   match d.name with
   | Lib lib -> Opam.of_findlib_warn lib
   | BuildTool name -> Opam.of_buildtool_warn name
 
-let has_flag_test =
-  let is_test = function
-    | (OASISExpr.EFlag "tests", _) -> true
-    | _ -> false in
-  fun choices -> List.exists is_test choices
+(* Check whether it _may_ be triggered when "flag(tests)" is true (the
+   real trigger may require other flags to be set).  Thus, when this
+   function returns [false], it means that, even when flag(tests) is
+   true, no value of the other flags may trigger the condition.
+   One must have:
+   eval_conditional flags c ~tests:true ⇒ may_be_triggered_flag_tests c
+ *)
+let may_be_triggered_flag_tests =
+  (* Transport negations on atoms. *)
+  let rec tests_triggered ~neg = function
+    | OASISExpr.EFlag flag -> flag = "tests" && not neg
+    | OASISExpr.ENot t -> tests_triggered t ~neg:(not neg)
+    | OASISExpr.EAnd(t1, t2) | OASISExpr.EOr(t1, t2) ->
+       (* Suffice to the present in at least one of the clauses. *)
+       tests_triggered t1 ~neg || tests_triggered t2 ~neg
+    | OASISExpr.EBool _ | OASISExpr.ETest _ -> false in
+  fun (choices: _ OASISExpr.choices) ->
+  List.exists (fun (t, b) -> b && tests_triggered t ~neg:false) choices
+
+type oasis_flags = bool OASISExpr.choices StringMap.t
 
 let is_buildtool_in_section flags name = function
   | Library(_, bs, _)
@@ -98,12 +103,13 @@ let is_buildtool flags pkg name =
   List.exists (is_buildtool_in_section flags name) pkg.sections
 
 
-let findlib_of_section_gen flags pkg deps cs bs ~executable ~kind =
-  (* A dep. is compulsory of the lib/exec is built, regardless of
+let findlib_of_section_gen flags pkg deps cs bs ~executable =
+  (* A dep. is compulsory if the lib/exec is built, regardless of
      whether it is installed or not (we need the resources to perform
      the compilation).  In some rare cases one may want an executable
      for internal purposes only. *)
-  let is_built = eval_conditional flags bs.bs_build
+  let is_built = eval_conditional flags bs.bs_build ~tests:false
+  and is_built_tests = eval_conditional flags bs.bs_build ~tests:true
   and is_installed = eval_conditional flags bs.bs_install in
   if is_built && not is_installed && not(is_buildtool flags pkg cs.cs_name) then
     (* If the executable is used as a "BuildTools" in another section
@@ -113,21 +119,28 @@ let findlib_of_section_gen flags pkg deps cs bs ~executable ~kind =
   let findlib_depends deps = function
     | FindlibPackage(lib, v) ->
        (* If the Findlib library contains a dot, it is a
-             sub-library.  Only keep the main lib. *)
+          sub-library.  Only keep the main lib. *)
        let lib = try String.sub lib 0 (String.index lib '.')
                  with Not_found -> lib in
-       let kind = if has_flag_test bs.bs_build then Version.Test
-                  else if is_built && not is_installed then Version.Build
-                  else kind in
-       { name = Lib lib;
-         constraints = Version.constrain v ~kind;
-         compulsory = is_built } :: deps
+       let dep = if may_be_triggered_flag_tests bs.bs_build then [Version.Test]
+                 else [] in
+       (* Dependencies for executables are never required but at most
+          "build" (i.e. their change does not trigger a recompilation
+          of the executable). *)
+       let dep = if is_built && (executable || not is_installed) then
+                   Version.Build :: dep
+                 else dep in
+       let required = if executable then dep <> []
+                      else is_built_tests in
+       let constraints = Version.constrain v ~dep ~required in
+       { name = Lib lib;  constraints } :: deps
     | InternalLibrary _ -> deps in
   let findlib_tools deps = function
     | ExternalTool name ->
        { name = BuildTool name;
-         constraints = Version.constrain None ~kind:Version.Build;
-         compulsory = is_built } :: deps
+         constraints = Version.constrain None ~dep:[Version.Build]
+                                              ~required:is_built_tests
+       } :: deps
     | InternalExecutable _ -> deps in
   let deps = List.fold_left findlib_depends deps bs.bs_build_depends in
   let deps = List.fold_left findlib_tools deps bs.bs_build_tools in
@@ -138,21 +151,17 @@ let findlib_of_test_section_gen deps tst =
     (fun deps -> function
        | ExternalTool name ->
          { name = BuildTool name;
-           constraints = Version.constrain None ~kind:Version.Test;
-           compulsory = false } :: deps
+           constraints = Version.constrain None ~dep:[Version.Test]
+                           ~required:true (* deps in the "depends" section. *)
+         } :: deps
        | InternalExecutable _ -> deps)
     deps tst.test_tools
 
 let dependencies_of_section flags pkg deps = function
   | Library(cs, bs, _) ->
-     findlib_of_section_gen
-       flags pkg deps cs bs ~executable:false ~kind:Version.Required
+     findlib_of_section_gen flags pkg deps cs bs ~executable:false
   | Executable(cs, bs, _) ->
-     (* Dependencies for executables are "build" only (i.e. their
-        change does not trigger a recompilation of the executable).
-        FIXME: Is this smart? (fixed bug in a library) *)
-     findlib_of_section_gen
-       flags pkg deps cs bs ~executable:true ~kind:Version.Build
+     findlib_of_section_gen flags pkg deps cs bs ~executable:true
   | Test (_, tst) -> findlib_of_test_section_gen deps tst
   | _ -> deps
 
@@ -167,8 +176,8 @@ let get_all_dependencies flags pkg =
   let deps = merge_dependencies deps in
   (* Distinguish findlib packages that are going to be installed from
      optional ones. *)
-  let group1 d = Version.is_test d.constraints || d.compulsory in
-  let deps_opt = List.partition group1 deps in
+  let is_required d = d.constraints.Version.required in
+  let deps_opt = List.partition is_required deps in
   deps_opt
 
 (** Tell whether "compiler-libs" is a mandatory dependency. *)
@@ -212,7 +221,7 @@ let get_findlib_libraries flags pkg =
 (* Format OPAM output
  ***********************************************************************)
 
-(* Simplify ⋀ (⋁ OPAM packages, version constraint). *)
+(* Simplify as form: ⋀ (⋁ OPAM packages, version constraint). *)
 let simplify_packages =
   (* When a set of packages A is included in A ∪ B, the formula
      A ∧ (A ∨ B) is equivalent to A = A ∩ (A ∪ B). *)
@@ -325,11 +334,12 @@ let output t fmt flags =
     let v = if List.exists (fun d -> d.name = Lib "bytes") deps then
               Version.satisfy_both pkg.findlib_version findlib_for_bytes
             else pkg.findlib_version in
-    let c = Version.(constrain v ~kind:Build) in
+    let c = Version.(constrain v ~dep:[Build; Test] ~required:true) in
     (["ocamlfind", Version.Set.empty], c) :: pkgs in
   let pkgs = if Tarball.needs_oasis t then
                let v = OASISVersion.VGreaterEqual pkg.oasis_version in
-               let c = Version.constrain (Some v) ~kind:Version.Build in
+               let c = Version.(constrain (Some v) ~dep:[Build; Test]
+                                                   ~required:true) in
                (Opam.of_findlib "oasis", c) :: pkgs
              else pkgs in
   let pkgs = simplify_packages pkgs in

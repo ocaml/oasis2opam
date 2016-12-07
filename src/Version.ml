@@ -224,18 +224,44 @@ let rec iter_disjunction c f = match c with
   | c -> f c
 
 
-type kind = Required | Build | Test
+(** Dependency flags. *)
+(* The odd rules about the flags is because one can write
+   {build & doc & >= "3.14"}
+   but its semantics as a _constraint_ (i.e. a predicate to satisfy to
+   trigger the action) read
+   ((build || doc) && >= "3.14").
+   Moreover, an empty list means "true" in that semantic. *)
+type dep_flags =
+  | Build (** The package (with this constraint) is needed for the build *)
+  | Test  (** The package is needed when flag(tests) is true *)
 
-type constraints = { kind: kind;
-                     cmp: OASISVersion.comparator option }
+let string_of_dep_flags = function
+  | Build -> "build"
+  | Test -> "test"
 
-let constrain ?(kind=Required) cmp = { kind; cmp }
+let make_unique_dep_flags (f: dep_flags list) =
+  make_unique ~cmp:compare ~merge:(fun f _ -> f) f
 
-let no_constraint = { kind = Required;  cmp = None }
+let both_dep_flags d1 d2 =
+  (* If one of the two dep_flags is empty, it means that the package
+     is always needed. *)
+  if d1 = [] || d2 = [] then []
+  else make_unique_dep_flags (d1 @ d2)
 
-let is_unconstrained c = c.kind = Required && c.cmp = None
+type constraints = {
+    dep_flags: dep_flags list; (* [] = always needed *)
+    required: bool; (* In the "depends" section.  If not compulsory,
+                       it will be put in the "depopts" section and
+                       negation of its constraints in "conflicts". *)
+    cmp: OASISVersion.comparator option }
 
-let is_test c = c.kind = Test
+let constrain ?(dep=[]) ~required cmp =
+  { dep_flags = dep;  required;  cmp }
+
+let no_constraint = { dep_flags = [];  required = true;  cmp = None }
+
+(* No dependency flag & no version constraint. *)
+let is_unconstrained c = c.dep_flags = [] && c.cmp = None
 
 let complement_reduce cmp = comparator_reduce (complement cmp)
 
@@ -244,18 +270,25 @@ let constraint_complement c = match c.cmp with
   | Some cmp -> Some (complement_reduce cmp)
 
 let string_of_constraint c =
-  match c.kind, c.cmp with
-  | Required, None -> ""
-  | Required, Some cmp -> string_of_comparator cmp
-  | Build, None -> "build"
-  | Build, Some cmp -> "build & " ^ string_of_comparator cmp
-  | Test, None -> "test"
-  | Test, Some cmp -> "test & " ^ string_of_comparator cmp
+  (* It may be that the flags are repeated in the list.  Do not issue
+     the opam dependency flag several times. *)
+  let dep_flags = make_unique_dep_flags c.dep_flags in
+  let dep_flags = List.map string_of_dep_flags dep_flags in
+  let constraints = match c.cmp with
+    | Some cmp -> dep_flags @ [string_of_comparator cmp]
+    | None -> dep_flags in
+  String.concat " & " constraints
 
 let satisfy_both_constraints c1 c2 =
-  let kind = match c1.kind, c2.kind with
-    | _, Required | Required, _ -> Required
-    | Build, (Build|Test) | Test, Build -> Build (* Build comes before test *)
-    | Test, Test -> Test in
-  { kind;
+  let dep_flags, required =
+    match c1.dep_flags, c1.required, c2.dep_flags, c2.required with
+    | d1, true, d2, true -> (both_dep_flags d1 d2, true)
+    | d, true, d_opt, false | d_opt, false, d, true ->
+       (* The dependency that is NOT required has an empty flag list,
+          it should not remove the flags for the one in the *)
+       let dep = if d_opt = [] then d else both_dep_flags d d_opt in
+       (dep, true)
+    | d1, false, d2, false -> (both_dep_flags d1 d2, false) in
+  { dep_flags;
+    required;
     cmp = satisfy_both c1.cmp c2.cmp }

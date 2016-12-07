@@ -216,18 +216,20 @@ let get_flags sections =
   List.fold_left add StringMap.empty sections
 
 
-let eval_conditional flags cond =
+let eval_conditional ?(tests=false) flags cond =
   (* If any condition returns [true] (i.e. a section with these dep
      must be built), then the dependency is compulsory. *)
   let eval_tst name =
-    try
-      let t = StringMap.find name flags in
-      (* FIXME: how to eval flags?  See:
+    if tests && name = "tests" then "true"
+    else
+      try
+        let t = StringMap.find name flags in
+        (* FIXME: how to eval flags?  See:
          https://github.com/ocaml/oasis2debian/blob/master/src/Expr.ml
          https://github.com/ocaml/oasis2debian/blob/master/src/Arch.ml
-       *)
-      string_of_bool(OASISExpr.choose (fun _ -> "false") t)
-    with Not_found -> "false" in
+         *)
+        string_of_bool(OASISExpr.choose (fun _ -> "false") t)
+      with Not_found -> "false" in
   OASISExpr.choose eval_tst cond
 
 
