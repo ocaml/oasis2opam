@@ -26,9 +26,9 @@ build-test: [
 depends: [
   "base-bytes" {build & test}
   "base-unix" {build & test}
-  "oasis" {build & test & >= "0.4.8"}
+  "oasis" {build & test & doc & >= "0.4.8"}
   "ocamlbuild" {build}
-  "ocamlfind" {build & test & >= "1.5"}
+  "ocamlfind" {build & test & doc & >= "1.5"}
   "ounit" {test & >= "2.0.0"}
   ("qcheck" {test & >= "0.4"} | "qtest" {test & >= "0.4"})
 ]

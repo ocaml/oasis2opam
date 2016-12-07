@@ -33,7 +33,7 @@ let findlib_with_ocaml =
   List.fold_left (fun s e -> S.add e s) S.empty pkg
 
 let buildtools_with_ocaml =
-  let names = [ "ocamllex"; "ocamlyacc" ] in
+  let names = [ "ocamllex"; "ocamlyacc"; "ocamldoc" ] in
   List.fold_left (fun s e -> S.add e s) S.empty names
 
 let findlib_for_bytes =
@@ -102,6 +102,12 @@ let is_buildtool_in_section flags name = function
 let is_buildtool flags pkg name =
   List.exists (is_buildtool_in_section flags name) pkg.sections
 
+let findlib_of_tools ~dep ~required deps = function
+  | ExternalTool name ->
+     { name = BuildTool name;
+       constraints = Version.constrain None ~dep ~required } :: deps
+  | InternalExecutable _ -> deps
+
 
 let findlib_of_section_gen flags pkg deps cs bs ~executable =
   (* A dep. is compulsory if the lib/exec is built, regardless of
@@ -135,34 +141,24 @@ let findlib_of_section_gen flags pkg deps cs bs ~executable =
        let constraints = Version.constrain v ~dep ~required in
        { name = Lib lib;  constraints } :: deps
     | InternalLibrary _ -> deps in
-  let findlib_tools deps = function
-    | ExternalTool name ->
-       { name = BuildTool name;
-         constraints = Version.constrain None ~dep:[Version.Build]
-                                              ~required:is_built_tests
-       } :: deps
-    | InternalExecutable _ -> deps in
+  let findlib_tools = findlib_of_tools ~dep:[Version.Build]
+                        ~required:is_built_tests in
   let deps = List.fold_left findlib_depends deps bs.bs_build_depends in
   let deps = List.fold_left findlib_tools deps bs.bs_build_tools in
   deps
-
-let findlib_of_test_section_gen deps tst =
-  List.fold_left
-    (fun deps -> function
-       | ExternalTool name ->
-         { name = BuildTool name;
-           constraints = Version.constrain None ~dep:[Version.Test]
-                           ~required:true (* deps in the "depends" section. *)
-         } :: deps
-       | InternalExecutable _ -> deps)
-    deps tst.test_tools
 
 let dependencies_of_section flags pkg deps = function
   | Library(cs, bs, _) ->
      findlib_of_section_gen flags pkg deps cs bs ~executable:false
   | Executable(cs, bs, _) ->
      findlib_of_section_gen flags pkg deps cs bs ~executable:true
-  | Test (_, tst) -> findlib_of_test_section_gen deps tst
+  | Test(_, tst) ->
+     (* Deps in the "depends" section ⇒ required. *)
+     List.fold_left (findlib_of_tools ~dep:[Version.Test] ~required:true)
+       deps tst.test_tools
+  | Doc(_, doc) ->
+     List.fold_left (findlib_of_tools ~dep:[Version.Doc] ~required:true)
+       deps doc.doc_build_tools
   | _ -> deps
 
 let merge_dependencies =
@@ -334,11 +330,11 @@ let output t fmt flags =
     let v = if List.exists (fun d -> d.name = Lib "bytes") deps then
               Version.satisfy_both pkg.findlib_version findlib_for_bytes
             else pkg.findlib_version in
-    let c = Version.(constrain v ~dep:[Build; Test] ~required:true) in
+    let c = Version.(constrain v ~dep:[Build; Test; Doc] ~required:true) in
     (["ocamlfind", Version.Set.empty], c) :: pkgs in
   let pkgs = if Tarball.needs_oasis t then
                let v = OASISVersion.VGreaterEqual pkg.oasis_version in
-               let c = Version.(constrain (Some v) ~dep:[Build; Test]
+               let c = Version.(constrain (Some v) ~dep:[Build; Test; Doc]
                                                    ~required:true) in
                (Opam.of_findlib "oasis", c) :: pkgs
              else pkgs in

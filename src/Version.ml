@@ -234,10 +234,12 @@ let rec iter_disjunction c f = match c with
 type dep_flags =
   | Build (** The package (with this constraint) is needed for the build *)
   | Test  (** The package is needed when flag(tests) is true *)
+  | Doc   (** dependencies only required to build the package doc. *)
 
 let string_of_dep_flags = function
   | Build -> "build"
   | Test -> "test"
+  | Doc -> "doc"
 
 let make_unique_dep_flags (f: dep_flags list) =
   make_unique ~cmp:compare ~merge:(fun f _ -> f) f
