@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/Chris00/oasis2opam.svg?branch=master)](https://travis-ci.org/Chris00/oasis2opam)
+[![Build Status](https://travis-ci.org/ocaml/oasis2opam.svg?branch=master)](https://travis-ci.org/ocaml/oasis2opam)
 
 oasis2opam
 ==========
