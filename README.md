@@ -29,6 +29,16 @@ It will download the tarball into a temporary directory, extract the
 Along the way, `oasis2opam` may display suggestions so your OPAM
 package has richer metadata.
 
+If you want to "opamify" your project, so that for example you can
+`opam pin` it, use
+
+    oasis2opam --local
+
+To keep the generated OPAM files up to date with the changes you make
+to your `_oasis` file, add a rule executing `oasis2opam --local -y`
+in your `Makefile`.
+
+
 Conventions
 -----------
 
