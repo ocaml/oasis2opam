@@ -197,8 +197,6 @@ let opam t ~local flags =
   )
 
 
-let remove_script = "_oasis_remove_.ml"
-
 (** Write an .install file to save oasis setup.* in order to be able
     to also use oasis for removal.  Never put these files in the
     repository itself because they are a hack. *)
@@ -208,20 +206,14 @@ let oasis t ~local =
                 fprintf ppf "@[<2>etc: [@\n\
                              \"setup.ml\"@\n\
                              \"setup.data\"@\n\
-                             \"setup.log\"@\n\
-                             \"%s\"\
-                             @]@\n]@\n%!" remove_script;
+                             \"setup.log\"\
+                             @]@\n]@\n%!";
                );
-  (* oasis setup.ml looks for setup.data in the current working
-     directory and it is not clear there is a protable way to change
-     do that in OPAM.  This script must be in sync. with how it is
-     called from the "remove:" section. *)
-  let script =
-    "open Printf\n\n\
-     let () =\n  \
-     let dir = Sys.argv.(1) in\n  \
-     (try Sys.chdir dir\n   \
-     with _ -> eprintf \"Cannot change directory to %s\\n%!\" dir);\n  \
-     exit (Sys.command \"ocaml setup.ml -uninstall\")\n" in
-  with_file t remove_script ~local ~warn:true
-            (fun ppf -> fprintf ppf "%s" script)
+  (* Warn about obsolete file. *)
+  let dir = Filename.concat (Tarball.pkg_opam_dir t) "files" in
+  let remove_script = "_oasis_remove_.ml" in
+  let full_fname = if local then remove_script
+                   else Filename.concat dir remove_script in
+  if Sys.file_exists full_fname then
+    info(sprintf "The file %S is no longer needed.  Please remove it."
+           full_fname)

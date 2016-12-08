@@ -160,9 +160,9 @@ let output_build_install t fmt flags opam_file_version ~remove_with_oasis =
     Format.fprintf fmt "@[<2>remove: [";
     if remove_with_oasis then
       (* setup.{ml,data,log} were saved by OPAM during install. *)
-      Format.fprintf fmt "@\n@[<2>[\"ocaml\" \"%%{etc}%%/%s/%s\"@ \
-                          \"%%{etc}%%/%s\"@]]"
-                     pkg.name Install.remove_script pkg.name
+      Format.fprintf fmt "@\n@[<2>[\"ocaml\" \"%%{etc}%%/%s/setup.ml\"@ \
+                          \"-C\" \"%%{etc}%%/%s\"@ \"-uninstall\"@]]"
+                     pkg.name pkg.name
     else
       List.iter (fun l -> Format.fprintf fmt "@\n[\"ocamlfind\" \"remove\" %S]" l
                 ) libs;
