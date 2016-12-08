@@ -6,6 +6,15 @@ oasis2opam
 Tool to convert [OASIS](https://github.com/ocaml/oasis) metadata to
 [OPAM](https://github.com/OCamlPro/opam) package descriptions.
 
+Install
+-------
+
+The easiest way to install this program is to use
+[opam](https://opam.ocaml.org/):
+
+    opam install oasis2opam
+
+
 Usage
 -----
 
