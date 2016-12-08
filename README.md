@@ -34,10 +34,9 @@ The default value of flags will be used to determine whether the
 libraries appearing in the conditional sections are to be considered
 optional or mandatory.
 
-OPAM tags are generated from the Oasis "Categories:" field by taking
-the basemane of the URL.  Thus ``Categories: http://science`` will
-generate the tag ``science``.  This is sub-optimal but one has to wait
-for a proper description of Oasis categories.
+OPAM tags are generated from the Oasis "Tags:" field.  "clib:" tags
+will automatically be added with the names of the C libraries that are
+used in order to ease searches.
 
 
 Dependencies
