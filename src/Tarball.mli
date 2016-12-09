@@ -54,6 +54,11 @@ val needs_oasis : t -> bool
 val setup_ml_exists : t -> bool
 (** Whether a file "setup.ml" exists in the tarball. *)
 
+val oasis_version : t -> OASISVersion.t option
+(** Return the version of OASIS used to generate "setup.ml" if it can
+    be detected (i.e., if "setup.ml" is present and it does not use
+    dynamic mode). *)
+
 val opam_depends : t -> string
 (** Return the content of the depends section in the _opam file (or
     [""] if no such section or no such file exists). *)

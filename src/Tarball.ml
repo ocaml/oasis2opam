@@ -36,6 +36,7 @@ type t = {
   mutable opam: string option;
   mutable needs_oasis: bool option;
   mutable setup_ml_exists: bool option;
+  mutable pkg_oasis_version : OASISVersion.t option;
   mutable pkg_opam_dir: string; (* = "" iff undetermined yet *)
 }
 
@@ -111,6 +112,7 @@ let t_of_tarball ~url tarball =
     opam = None;
     needs_oasis = None;
     setup_ml_exists = None;
+    pkg_oasis_version = None;
     pkg_opam_dir = "";
   }
 
@@ -230,6 +232,24 @@ let needs_oasis t =
      t.needs_oasis <- Some need;
      need
 
+let oasis_version_re =
+  Str.regexp "OASIS v\\([0-9]+\\.[0-9]+\\(\\.[0-9]+\\)?\\)"
+
+let oasis_version t =
+  match t.pkg_oasis_version with
+  | Some _ as v -> v
+  | None ->
+     check_exists t.tarball;
+     match get_file t setup_re with
+     | Some setup ->
+        (try
+          ignore(Str.search_forward oasis_version_re setup 0);
+          let v = Str.matched_group 1 setup in
+          let v = Some(OASISVersion.version_of_string v) in
+          t.pkg_oasis_version <- v;
+          v
+         with Not_found -> None)
+     | None -> None
 
 let pkg_opam_dir t =
   if t.pkg_opam_dir = "" then (

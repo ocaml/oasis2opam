@@ -39,6 +39,9 @@ let buildtools_with_ocaml =
 let findlib_for_bytes =
   Some(OASISVersion.(VGreaterEqual(version_of_string "1.5")))
 
+(* We need a version that supports the "-C" flag. *)
+let min_oasis_version =
+  OASISVersion.version_of_string "0.4.7"
 
 (* Gather findlib packages
  ***********************************************************************)
@@ -333,7 +336,8 @@ let output t fmt flags =
     let c = Version.(constrain v ~dep:[Build; Test; Doc] ~required:true) in
     (["ocamlfind", Version.Set.empty], c) :: pkgs in
   let pkgs = if Tarball.needs_oasis t then
-               let v = OASISVersion.VGreaterEqual pkg.oasis_version in
+               let v = Version.max pkg.oasis_version min_oasis_version in
+               let v = OASISVersion.VGreaterEqual v in
                let c = Version.(constrain (Some v) ~dep:[Build; Test; Doc]
                                                    ~required:true) in
                (Opam.of_findlib "oasis", c) :: pkgs

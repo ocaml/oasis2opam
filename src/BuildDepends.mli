@@ -3,6 +3,9 @@ open Utils
 type oasis_flags = bool OASISExpr.choices StringMap.t
 (** A map from flag names to the Boolean expression defining them.   *)
 
+val min_oasis_version : OASISVersion.t
+(** The minimal OASIS version required by oasis2opam. *)
+
 val output : Tarball.t -> Format.formatter -> oasis_flags -> unit
 (** [output t fmt flags] given a tarball [t] and OASIS [flags], write
     on [fmt] the "depends: [...]", "depopts: [...]", and "conflicts:

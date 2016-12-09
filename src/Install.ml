@@ -216,4 +216,19 @@ let oasis t ~local =
                    else Filename.concat dir remove_script in
   if Sys.file_exists full_fname then
     info(sprintf "The file %S is no longer needed.  Please remove it."
-           full_fname)
+           full_fname);
+  (* Warn if oasis is not recent enough *)
+  (match Tarball.oasis_version t with
+   | Some v ->
+      if OASISVersion.version_compare v BuildDepends.min_oasis_version < 0
+      then (
+        error(wrapped_sprintf ~ofs:3
+                "Your setup.ml was generated whith oasis version %s. \
+                 This is too old.  Please upgrade to \
+                 at least version %s."
+                (OASISVersion.string_of_version v)
+                (OASISVersion.string_of_version
+                   BuildDepends.min_oasis_version));
+        exit 1
+      )
+   | None -> ())
