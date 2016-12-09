@@ -71,6 +71,18 @@ let url_concat url path =
     url ^ path
   else url ^ "/" ^ path
 
+(* Remove "#..." and "?...". *)
+let url_base url =
+  let url =
+    try
+      let i = String.index url '#' (* or Not_found *) in
+      String.sub url 0 i
+    with Not_found -> url in
+  try
+    let i = String.index url '?' (* or Not_found *) in
+    String.sub url 0 i
+  with Not_found -> url
+
 let concat_map l f =
   (* FIXME: a more efficient implementation may be desirable *)
   List.concat (List.map f l)

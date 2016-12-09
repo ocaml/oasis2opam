@@ -238,7 +238,7 @@ let opam_opam t flags ~local opam_file_version ~remove_with_oasis =
     | Some url, _ when start_with url "https://github.com" ->
        Some(url_concat url "issues")
     | _, Some url when start_with url "https://github.com" ->
-       Some(url_concat (Filename.chop_extension url) "issues")
+       Some(url_concat (Filename.chop_extension (url_base url)) "issues")
     | Some url, _ ->
        info "Using the Homepage URL for bugreports as well";
        Some url
