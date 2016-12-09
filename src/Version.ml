@@ -276,10 +276,14 @@ let string_of_constraint c =
      the opam dependency flag several times. *)
   let dep_flags = make_unique_dep_flags c.dep_flags in
   let dep_flags = List.map string_of_dep_flags dep_flags in
-  let constraints = match c.cmp with
-    | Some cmp -> dep_flags @ [string_of_comparator cmp]
-    | None -> dep_flags in
-  String.concat " & " constraints
+  let s_dep_flags = String.concat " | " dep_flags in
+  match c.cmp with
+  | None -> s_dep_flags
+  | Some cmp ->
+     match dep_flags with
+     | [] -> string_of_comparator cmp
+     | [_] -> s_dep_flags ^ " & " ^ string_of_comparator cmp
+     | _ :: _ -> "(" ^ s_dep_flags ^ ") & " ^ string_of_comparator cmp
 
 let satisfy_both_constraints c1 c2 =
   let dep_flags, required =
