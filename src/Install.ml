@@ -215,7 +215,8 @@ let oasis t ~local =
   let full_fname = if local then remove_script
                    else Filename.concat dir remove_script in
   if Sys.file_exists full_fname then
-    info(sprintf "The file %S is no longer needed.  Please remove it."
+    info(wrapped_sprintf ~ofs:3 "The file %S is no longer needed.  \
+                                 Please remove it."
            full_fname);
   (* Warn if oasis is not recent enough *)
   (match Tarball.oasis_version t with
