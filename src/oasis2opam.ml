@@ -203,15 +203,33 @@ let opam_opam t flags ~local opam_file_version ~remove_with_oasis =
    | Some url -> Format.fprintf fmt "homepage: %S@\n" url
    | None -> warn "Consider adding \"Homepage:\" to your _oasis file");
   (* Source repository *)
-  let get_source_repository = function
-    | SrcRepo (_, src) -> Some src
+  let any_repository = function
+    | SrcRepo (cs, src) -> Some (cs.cs_name, src)
     | _ -> None in
+  let sources = Utils.map_filter pkg.sections ~f:any_repository in
+  let get_source_repository () =
+    try List.assoc "opam-pin" sources (* or Not_found *)
+    with Not_found ->
+      try
+        let src = List.assoc "head" sources in
+        info "No \"SourceRepository\" named \"opam-pin\", using \"head\".";
+        src
+      with Not_found ->
+        try
+          let src = List.assoc "master" sources in
+          info "No \"SourceRepository\" named \"opam-pin\", using \"master\".";
+          src
+        with Not_found ->
+          let (name, src) = List.hd sources (* or Failure *) in
+          info(wrapped_sprintf ~ofs:3
+                 "No \"SourceRepository\" named \"opam-pin\", using %S."
+                 name);
+          src in
   let source_repository =
-    match Utils.map_find pkg.sections get_source_repository with
-    | Some src ->
-       Format.fprintf fmt "dev-repo: %S@\n" src.src_repo_location;
-       Some src.src_repo_location
-    | None ->
+    try let src = get_source_repository () in
+        Format.fprintf fmt "dev-repo: %S@\n" src.src_repo_location;
+        Some src.src_repo_location
+    with Not_found | Failure _ ->
        warn "Please add a \"SourceRepository\" section to your _oasis file";
        None in
   (* Bug reports URL — with Github heuristics *)

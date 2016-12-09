@@ -82,6 +82,13 @@ let rec map_find l f =
               | (Some _ as x') -> x'
               | None -> map_find tl f
 
+let rec map_filter l ~f =
+  match l with
+  | [] -> []
+  | x :: tl -> match f x with
+               | Some x -> x :: map_filter tl ~f
+               | None -> map_filter tl ~f
+
 let rec ls_rec d =
   if Sys.is_directory d then (
     let fn = if d = "." then Sys.readdir d

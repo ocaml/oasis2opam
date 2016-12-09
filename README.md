@@ -57,6 +57,11 @@ OPAM tags are generated from the Oasis "Tags:" field.  "clib:" tags
 will automatically be added with the names of the C libraries that are
 used in order to ease searches.
 
+The OPAM field `dev-repo` is generated using the `SourceRepository`
+section.  If there is such a section named `opam-pin`, it is
+preferred.  If not, one named `head`, then `master`, then any
+`SourceRepository` are used (in that order).  If no
+`SourceRepository` is present in `_oasis` a warning is issued.
 
 Dependencies
 ------------
