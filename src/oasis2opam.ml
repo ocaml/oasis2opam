@@ -234,21 +234,22 @@ let opam_opam t flags ~local opam_file_version ~remove_with_oasis =
        None in
   (* Bug reports URL — with Github heuristics *)
   let bugreports =
-    match pkg.homepage, source_repository with
-    | Some url, _ when start_with url "https://github.com" ->
-       Some(url_concat url "issues")
-    | _, Some url when start_with url "https://github.com" ->
-       Some(url_concat (Filename.chop_extension (url_base url)) "issues")
-    | Some url, _ ->
-       info "Using the Homepage URL for bugreports as well";
-       Some url
-    | _ -> None in
+    match pkg.bugreports with
+    | Some _ as url -> url
+    | None ->
+       match pkg.homepage, source_repository with
+       | Some url, _ when start_with url "https://github.com" ->
+          Some(url_concat url "issues")
+       | _, Some url when start_with url "https://github.com" ->
+          Some(url_concat (Filename.chop_extension (url_base url)) "issues")
+       | Some url, _ ->
+          info "Using the Homepage URL for bugreports as well";
+          Some url
+       | _ -> None in
   (match bugreports with
    | Some url -> Format.fprintf fmt "bug-reports: %S@\n" url
    | None ->
-      (* See https://github.com/ocaml/oasis/pull/62 *)
-      (* warn "Consider adding \"BugReports:\" to your _oasis file" *)
-      ());
+      warn "Consider adding \"BugReports:\" to your _oasis file");
   output_tags fmt pkg;
   output_build_install t fmt flags opam_file_version ~remove_with_oasis;
   if List.exists (function Doc _ -> true | _  -> false) pkg.sections then
