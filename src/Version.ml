@@ -225,12 +225,10 @@ let rec iter_disjunction c f = match c with
 
 
 (** Dependency flags. *)
-(* The odd rules about the flags is because one can write
-   {build & doc & >= "3.14"}
-   but its semantics as a _constraint_ (i.e. a predicate to satisfy to
-   trigger the action) read
-   ((build || doc) && >= "3.14").
-   Moreover, an empty list means "true" in that semantic. *)
+
+(** Contexts in which dependencies are needed.  As predicates, they
+    should be seen as an or-formula with the EXCEPTION that the empty
+    list is the always true formula (the dependency is always required). *)
 type dep_flags =
   | Build (** The package (with this constraint) is needed for the build *)
   | Test  (** The package is needed when flag(tests) is true *)
@@ -271,10 +269,22 @@ let constraint_complement c = match c.cmp with
   | None -> None
   | Some cmp -> Some (complement_reduce cmp)
 
+(* OPAM 1.2.2 does not allow "or" between flags.  Summarize them as
+   a single flag according to "test ⊂ build" *)
+let reduce_dep_flags flags =
+  match flags with
+  | [] -> []
+  | _ :: _  ->
+     (* The larger scope flags come first (i.e. are smaller).
+        FIXME: The code relies on the fact that this is the natural order
+        coming from the definition of [dep_flags]. *)
+     [List.hd (List.sort compare flags)]
+
 let string_of_constraint c =
   (* It may be that the flags are repeated in the list.  Do not issue
      the opam dependency flag several times. *)
   let dep_flags = make_unique_dep_flags c.dep_flags in
+  let dep_flags = reduce_dep_flags dep_flags in
   let dep_flags = List.map string_of_dep_flags dep_flags in
   let s_dep_flags = String.concat " | " dep_flags in
   match c.cmp with

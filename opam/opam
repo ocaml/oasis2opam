@@ -25,11 +25,11 @@ build-test: [
   ["ocaml" "setup.ml" "-test"]
 ]
 depends: [
-  "base-bytes" {build | test}
-  "base-unix" {build | test}
-  "oasis" {(build | test | doc) & >= "0.4.8"}
+  "base-bytes" {build}
+  "base-unix" {build}
+  "oasis" {build & >= "0.4.8"}
   "ocamlbuild" {build}
-  "ocamlfind" {(build | test | doc) & >= "1.5"}
+  "ocamlfind" {build & >= "1.5"}
   "ounit" {test & >= "2.0.0"}
   ("qcheck" {test & >= "0.4"} | "qtest" {test & >= "0.4"})
 ]
