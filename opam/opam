@@ -1,6 +1,6 @@
 opam-version: "1.2"
 name: "oasis2opam"
-version: "0.7"
+version: "0.8"
 maintainer: "Christophe Troestler <Christophe.Troestler@umons.ac.be>"
 authors: [ "Christophe Troestler" ]
 license: "GPL-3 with OCaml linking exception"
@@ -31,5 +31,5 @@ depends: [
   "ocamlbuild" {build}
   "ocamlfind" {build & >= "1.5"}
   "ounit" {test & >= "2.0.0"}
-  ("qcheck" {test & >= "0.4"} | "qtest" {test & >= "0.4"})
+  ("qcheck" {test & >= "0.5"} | "qtest" {test & = "2.4"} | "qtest" {test & = "2.3"} | "qtest" {test & = "2.2"})
 ]

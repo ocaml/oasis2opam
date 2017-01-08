@@ -28,7 +28,7 @@ Executable test_version
   Path: src/
   MainIs: test_version.ml
   BuildDepends:   oasis (>= 0.4.4), oasis.builtin-plugins, unix, bytes,
-                  str, qcheck (>= 0.4), qcheck.ounit, oUnit (>= 2.0.0)
+                  str, qcheck (>= 0.5), oUnit (>= 2.0.0)
   CompiledObject: best
   BuildTools:     ocamlbuild
   Install:        false
