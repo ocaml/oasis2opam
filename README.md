@@ -63,6 +63,15 @@ preferred.  If not, one named `head`, then `master`, then any
 `SourceRepository` are used (in that order).  If no
 `SourceRepository` is present in `_oasis` a warning is issued.
 
+If an `_opam` file is found, its content is merged into the file
+`opam` being created.  Specifically, the content of the "depends"
+section (if it exists) is added to same section in `opam` and the rest
+of the file is appended to the `opam` file.  This is useful to add
+[build only dependencies][] that are not declared in `_oasis` and a
+`depexts` section.
+
+[build only dependencies]: https://opam.ocaml.org/doc/Manual.html#opamfield-depends
+
 Dependencies
 ------------
 
