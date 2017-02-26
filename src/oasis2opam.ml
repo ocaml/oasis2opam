@@ -289,6 +289,7 @@ let () =
   OASISBuiltinPlugins.init ();
   let local = ref false in
   let install = ref false in
+  let publish = ref false in
   let always_yes = ref false in
   let version = ref false in
   let duplicates = ref false in
@@ -298,6 +299,8 @@ let () =
     " create an opam dir for the _oasis in the current dir";
     "--install", Arg.Set install,
     " use an <pkg>.install file to remove executables,... instead of oasis (not recommended)";
+    "--publish", Arg.Set publish,
+    " Submit the generated opam file to the opam repository";
     "-y", Arg.Set always_yes,
     " answer \"y\" to all questions";
     "--duplicates", Arg.Set duplicates,
@@ -356,4 +359,15 @@ let () =
     Install.oasis t ~local:!local
   else
     Install.opam t flags ~local:!local;
-  info (sprintf "OPAM directory %S created." dir)
+  info (sprintf "OPAM directory %S created." dir);
+  if !publish then (
+    let f_exit_code c =
+      if c <> 0 then
+        if c = 127 then
+          fatal_error "Cannot --publish: \"opam-publish\" not found.\n"
+        else (error(sprintf "\"opam-publish\" terminated with code %d.\n" c);
+              exit c) in
+    OASISExec.run ~ctxt:!OASISContext.default ~f_exit_code
+      "opam-publish" ["submit"; dir];
+    info "Submitted to OPAM repository.";
+  )
