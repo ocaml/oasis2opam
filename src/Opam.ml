@@ -4,6 +4,8 @@ open Utils
 (* Findlib libraries and their corresponding virtual base OPAM package. *)
 let opam_base_packages = [ "bigarray", "base-bigarray";
                            "bytes", "base-bytes";
+                           "camlp4", "camlp4";
+                           "findlib", "ocamlfind";
                            "num", "num"; (* split from the compiler *)
                            "threads", "base-threads";
                            "unix", "base-unix" ]
@@ -130,15 +132,10 @@ let findlib, packages =
     (* For OPAM < 1.1, the sub-dir "opam" was used: *)
     add_of_dir (Filename.concat root "opam");
 
-    m := StringMap.add "findlib" [("ocamlfind", Version.Set.empty)] !m;
+    (* [Version.Set.empty] means that all versions of the OPAM package
+       have the library. *)
     List.iter (fun (fl, p) -> m := StringMap.add fl [(p, Version.Set.empty)] !m)
       opam_base_packages;
-    (* Camlp4 was split out of the standard distribution.  A dummy
-         OPAM package was created for older compilersn, thus one can
-         consider that all versions of the OPAM "camlp4" package have
-         the lib (which is what [Version.Set.empty] means) even though
-         it is not detected automatically. *)
-    m := StringMap.add "camlp4" ["camlp4", Version.Set.empty] !m;
     let findlib = StringMap.map (fun pkgs -> merge_versions pkgs) !m in
     (* Cache *)
     let to_be_cached = (findlib, !pkgs) in
