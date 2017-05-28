@@ -201,7 +201,7 @@ let opam_opam t flags ~local opam_file_version ~remove_with_oasis =
   Format.fprintf fmt "license: %S@\n" (OASISLicense.to_string pkg.license);
   (match pkg.homepage with
    | Some url -> Format.fprintf fmt "homepage: %S@\n" url
-   | None -> warn "Consider adding \"Homepage:\" to your _oasis file");
+   | None -> error "Please add an \"Homepage:\" to your _oasis file.");
   (* Source repository *)
   let any_repository = function
     | SrcRepo (cs, src) -> Some (cs.cs_name, src)
