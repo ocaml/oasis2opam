@@ -145,7 +145,7 @@ let with_file t fname ?warn:(want_warn=true) ~local f =
     if Sys.file_exists full_fname then
       warn(sprintf "A file %S was found.  Please remove it." full_fname);
     (* In local mode, generate the opam files in the repository itself. *)
-    info(sprintf "Create %S." fname);
+    info(sprintf "Created %S." fname);
     let fh = open_out fname in
     let ppf = Format.formatter_of_out_channel fh in
     f ppf;

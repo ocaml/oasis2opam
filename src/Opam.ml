@@ -78,7 +78,7 @@ let findlib, packages =
   let m_state = try (Unix.stat state).Unix.st_mtime
                 with Unix.Unix_error(Unix.ENOENT,_,_) -> infinity in
   (* FIXME: when oasis2opam upgrades, the cache must be updated (the
-       type may change). *)
+     type may change). *)
   if m_cache < Conf.compilation_time || m_cache < m_state then (
     (* Need to browse the opam dir again. *)
     eprintf "Synchronizing the list of available packages... %!";
@@ -122,7 +122,7 @@ let findlib, packages =
       let s = Str.global_replace space_re " " s in
       add_all_findlib m (opam_pkg, Version.Set.singleton version) s 0;
       (* We also want to keep a correspondence of OPAM packages →
-           versions (even those with no findlib detectable lib) *)
+         versions (even those with no findlib detectable lib) *)
       add_opam_version pkgs opam_pkg version
     in
     add_of_dir (Filename.concat root "repo");
