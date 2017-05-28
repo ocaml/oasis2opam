@@ -49,9 +49,23 @@ module String = struct
       ""
 end
 
+let dumb_term =
+  lazy(try Sys.getenv "TERM" = "dumb" with Not_found -> true)
+
 let () =
   let open OASISContext in
-  default := { !default with ignore_plugins = true }
+  default := { !default with ignore_plugins = true };
+  if Unix.isatty Unix.stdout && not(Lazy.force dumb_term) then (
+    (* Color output if the terminal supports it *)
+    let printf level str =
+      match level with
+      | `Error -> printf "\027[31;1mE: %s\027[m\n%!" str
+      | `Warning -> printf "W: %s\n%!" str
+      | `Info  -> printf "\027[33mI: %s\027[m\n%!" str
+      | `Debug -> printf "D: %s\n%!" str
+    in
+    default := { !default with printf = printf }
+  )
 
 let info s = (!OASISContext.default).OASISContext.printf `Info s
 let warn s = (!OASISContext.default).OASISContext.printf `Warning s
