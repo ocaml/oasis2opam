@@ -4,6 +4,7 @@ open Utils
 (* Findlib libraries and their corresponding virtual base OPAM package. *)
 let opam_base_packages = [ "bigarray", "base-bigarray";
                            "bytes", "base-bytes";
+                           "num", "num"; (* split from the compiler *)
                            "threads", "base-threads";
                            "unix", "base-unix" ]
 
