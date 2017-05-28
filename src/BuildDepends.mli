@@ -1,6 +1,5 @@
-open Utils
 
-type oasis_flags = bool OASISExpr.choices StringMap.t
+type oasis_flags = bool OASISExpr.choices Utils.StringMap.t
 (** A map from flag names to the Boolean expression defining them.   *)
 
 val min_oasis_version : OASISVersion.t
