@@ -290,6 +290,7 @@ let () =
   let local = ref false in
   let install = ref false in
   let publish = ref false in
+  let strict = ref false in
   let always_yes = ref false in
   let version = ref false in
   let duplicates = ref false in
@@ -301,6 +302,8 @@ let () =
     " use an <pkg>.install file to remove executables,... instead of oasis (not recommended)";
     "--publish", Arg.Set publish,
     " Submit the generated opam file to the opam repository";
+    "--strict", Arg.Set strict,
+    " Stop the program on the first error";
     "-y", Arg.Set always_yes,
     " answer \"y\" to all questions";
     "--duplicates", Arg.Set duplicates,
@@ -314,6 +317,7 @@ let () =
   let specs = Arg.align(specs @ fst (OASISContext.fspecs ())) in
   let usage_msg = "oasis2opam <url or tarball>" in
   Arg.parse specs (fun u -> url := u) usage_msg;
+  Utils.strict_mode := !strict_mode;
   if !version then (
     printf "Version: %s\n" Conf.version;
     if Conf.git_hash <> "" then printf "Git hash: %s\n" Conf.git_hash;

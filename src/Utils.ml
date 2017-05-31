@@ -67,9 +67,13 @@ let () =
     default := { !default with printf = printf }
   )
 
+let strict_mode = ref false
+
 let info s = (!OASISContext.default).OASISContext.printf `Info s
 let warn s = (!OASISContext.default).OASISContext.printf `Warning s
-let error s = (!OASISContext.default).OASISContext.printf `Error s
+let error s =
+  (!OASISContext.default).OASISContext.printf `Error s;
+  if !strict_mode then exit 1
 let fatal_error s = error s; exit 1
 let debug s = (!OASISContext.default).OASISContext.printf `Debug s
 
