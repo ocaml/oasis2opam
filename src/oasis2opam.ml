@@ -154,7 +154,7 @@ let output_build_install t fmt flags opam_file_version ~remove_with_oasis =
   Format.fprintf fmt "@]]@\n\
                       [\"ocaml\" \"setup.ml\" \"-build\"]";
   Format.fprintf fmt "@]@\n]@\n";
-  let libs = BuildDepends.get_findlib_libraries flags pkg in
+  let libs = BuildDepends.provided_findlib_libraries flags pkg in
   if remove_with_oasis || libs <> [] then (
     Format.fprintf fmt "install: [\"ocaml\" \"setup.ml\" \"-install\"]@\n";
     Format.fprintf fmt "@[<2>remove: [";
@@ -277,7 +277,7 @@ let opam_opam t flags ~local opam_file_version ~remove_with_oasis =
 
 let opam_findlib t flags =
   let pkg = Tarball.oasis t in
-  let libs = BuildDepends.get_findlib_libraries flags pkg in
+  let libs = BuildDepends.provided_findlib_libraries flags pkg in
   if libs <> [] then (
     let fh = open_out(Filename.concat (Tarball.pkg_opam_dir t) "findlib") in
     (* One findlib package per line *)

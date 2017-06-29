@@ -196,7 +196,7 @@ let get_dependencies flags pkg =
    List.filter does_not_come_with_OCaml opt)
 
 (* Findlib Libraries produced by this package. *)
-let get_findlib_libraries flags pkg =
+let provided_findlib_libraries flags pkg =
   let add_libs libs = function
     | Library(cs,bs,l) ->
        if eval_conditional flags bs.bs_install then (
@@ -375,7 +375,7 @@ let output t fmt flags =
                    [] opt_pkgs in
   (* Conflicts.  There are other packages (& version in case the
      conflict is or will be removed) which provide the same library. *)
-  let libs = get_findlib_libraries flags pkg in
+  let libs = provided_findlib_libraries flags pkg in
   let add_conflict c lib =
     let pkgs = Opam.of_findlib lib in
     let pkgs = List.filter (fun (p,_) -> p <> pkg.OASISTypes.name) pkgs in

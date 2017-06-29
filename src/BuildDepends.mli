@@ -14,8 +14,9 @@ val on_compiler_libs : oasis_flags -> OASISTypes.package -> bool
 (** [on_compiler_libs flags pkg] tells whether "compiler-libs" is a
     mandatory dependency for [pkg] given the [flags]. *)
 
-val get_findlib_libraries : oasis_flags -> OASISTypes.package -> string list
-(** [get_findlib_libraries flags pkg] returns the findlib libraries
+val provided_findlib_libraries :
+  oasis_flags -> OASISTypes.package -> string list
+(** [provided_findlib_libraries flags pkg] returns the findlib libraries
     provided by this package.  *)
 
 
