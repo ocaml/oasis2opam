@@ -239,7 +239,7 @@ type suitable_opam =
 (* Add to [l] the packages [name] with possible version constraints if
    not all package versions are present.  It is assumed that the oasis
    versions and the OPAM ones coincide. *)
-let add_suitable_pakages pkg_oasis_constraint (name, versions) l =
+let add_suitable_packages pkg_oasis_constraint (name, versions) l =
   let opam_versions = Opam.package_versions name in
   if Version.Set.is_empty opam_versions then
     (* The package does not exists in OPAM.  Maybe it was not yet
@@ -291,7 +291,7 @@ let add_suitable_pakages pkg_oasis_constraint (name, versions) l =
 (* [pkgs] are all the OPAM packages and versions providing a given
    findlib library. *)
 let constrain_opam_package (pkgs, pkg_oasis_version) =
-  let p = List.fold_right (add_suitable_pakages pkg_oasis_version) pkgs [] in
+  let p = List.fold_right (add_suitable_packages pkg_oasis_version) pkgs [] in
   let p =
     if List.for_all (fun (d,_,_) -> d = Only_findlib) p then p
     else
