@@ -275,16 +275,6 @@ let opam_opam t flags ~local opam_file_version ~remove_with_oasis =
   Format.pp_print_flush fmt ();
   close_out fh
 
-let opam_findlib t flags =
-  let pkg = Tarball.oasis t in
-  let libs = BuildDepends.provided_findlib_libraries flags pkg in
-  if libs <> [] then (
-    let fh = open_out(Filename.concat (Tarball.pkg_opam_dir t) "findlib") in
-    (* One findlib package per line *)
-    List.iter (fun l -> output_string fh l; output_char fh '\n') libs;
-    close_out fh
-  )
-
 let () =
   OASISBuiltinPlugins.init ();
   let local = ref false in
@@ -358,7 +348,6 @@ let () =
   opam_descr t;
   opam_url t;
   opam_opam t flags opam_file_version ~local:!local ~remove_with_oasis;
-  opam_findlib t flags;
   if remove_with_oasis then
     Install.oasis t ~local:!local
   else
