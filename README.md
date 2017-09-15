@@ -1,3 +1,5 @@
+**Announce: oasis2opam is in need of a new maintainer**
+
 [![Build Status](https://travis-ci.org/ocaml/oasis2opam.svg?branch=master)](https://travis-ci.org/ocaml/oasis2opam)
 
 oasis2opam
